@@ -649,10 +649,15 @@ function setup() {
  */
 function upgradeSettings() {
   var ss = SpreadsheetApp.getActive();
+  assertConfigCurrent();
 
-  var settings = ss.getSheetByName(SHEETS.SETTINGS);
-  if (settings) ss.deleteSheet(settings);
-  writeSettingsTab(ss);
+  // Build the replacement under a temporary name and only drop the old tab
+  // once it exists. Deleting first would leave no Settings tab at all if the
+  // write failed halfway.
+  var fresh = writeSettingsTab(ss, SHEETS.SETTINGS + ' (new)');
+  var old = ss.getSheetByName(SHEETS.SETTINGS);
+  if (old) ss.deleteSheet(old);
+  fresh.setName(SHEETS.SETTINGS);
 
   var bookings = ss.getSheetByName(SHEETS.BOOKINGS);
   if (!bookings) {
@@ -668,8 +673,30 @@ function upgradeSettings() {
   ss.toast('Settings rebuilt with the current columns.', 'Upgrade complete', 6);
 }
 
-function writeSettingsTab(ss) {
-  var sheet = createTab(ss, SHEETS.SETTINGS, SETTINGS_HEADERS);
+/**
+ * Code.gs and Config.gs are pasted in separately, so it is easy to update one
+ * and forget the other. That mismatch used to surface as "the number of
+ * columns in the data does not match the number of columns in the range",
+ * which says nothing useful. Fail early with something actionable instead.
+ */
+function assertConfigCurrent() {
+  var required = ['start_times', 'gap_minutes', 'max_per_day'];
+  var missing = [];
+
+  for (var i = 0; i < required.length; i++) {
+    if (SETTINGS_HEADERS.indexOf(required[i]) === -1) missing.push(required[i]);
+  }
+
+  if (missing.length) {
+    throw new Error(
+      'Config.gs is out of date — it is missing: ' + missing.join(', ') + '. ' +
+      'Paste the latest Config.gs into the editor, save, then run this again.'
+    );
+  }
+}
+
+function writeSettingsTab(ss, name) {
+  var sheet = createTab(ss, name || SHEETS.SETTINGS, SETTINGS_HEADERS);
 
   var rows = CONFIG.DEFAULT_LOCATIONS.map(function (r) {
     return [
