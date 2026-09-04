@@ -12,7 +12,18 @@
  *   POST {location, ts, name, email, discordId, notes}
  */
 
-var TZ = CONFIG.TIMEZONE;
+/**
+ * The timezone every Date in this project is formatted in.
+ *
+ * This is a function rather than `var TZ = CONFIG.TIMEZONE` on purpose. Apps
+ * Script evaluates script files in alphabetical order, so Code.gs runs before
+ * Config.gs and a top-level read of CONFIG would blow up with "Cannot read
+ * properties of undefined". Reading it inside a function defers the lookup
+ * until something is actually called, by which point every file has loaded.
+ */
+function tz() {
+  return CONFIG.TIMEZONE;
+}
 
 // ---------------------------------------------------------------- routing --
 
@@ -62,7 +73,7 @@ function handleConfig() {
   }
   return {
     ok: true,
-    timezone: TZ,
+    timezone: tz(),
     minNoticeHours: CONFIG.MIN_NOTICE_HOURS,
     horizonDays: CONFIG.HORIZON_DAYS,
     locations: locations
@@ -126,7 +137,7 @@ function handleSlots(locationId, dateStr) {
     ok: true,
     date: dateStr,
     location: locationId,
-    dateLabel: Utilities.formatDate(day, TZ, 'EEEE, MMMM d, yyyy'),
+    dateLabel: Utilities.formatDate(day, tz(), 'EEEE, MMMM d, yyyy'),
     slots: slots
   };
 }
@@ -177,7 +188,7 @@ function handleBooking(body) {
       ok: true,
       eventId: created.eventId,
       meetLink: created.meetLink,
-      dateLabel: Utilities.formatDate(start, TZ, 'EEEE, MMMM d, yyyy'),
+      dateLabel: Utilities.formatDate(start, tz(), 'EEEE, MMMM d, yyyy'),
       timeLabel: match.label
     };
   } finally {
@@ -267,7 +278,7 @@ function slotsForDay(rule, day, busy, blocked, now) {
 
     out.push({
       ts: slotStart.getTime(),
-      label: Utilities.formatDate(slotStart, TZ, 'h:mm a z')
+      label: Utilities.formatDate(slotStart, tz(), 'h:mm a z')
     });
   }
 
@@ -331,8 +342,8 @@ function createEvent(b, start, end) {
     var resource = {
       summary: title,
       description: description,
-      start: { dateTime: isoWithOffset(start), timeZone: TZ },
-      end: { dateTime: isoWithOffset(end), timeZone: TZ },
+      start: { dateTime: isoWithOffset(start), timeZone: tz() },
+      end: { dateTime: isoWithOffset(end), timeZone: tz() },
       attendees: [{ email: b.email, displayName: b.name }],
       conferenceData: {
         createRequest: {
@@ -405,7 +416,7 @@ function getBlockedDates() {
     if (!raw) continue;
 
     var key = (raw instanceof Date)
-      ? Utilities.formatDate(raw, TZ, 'yyyy-MM-dd')
+      ? Utilities.formatDate(raw, tz(), 'yyyy-MM-dd')
       : String(raw).trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue;
 
@@ -453,8 +464,8 @@ function appendBookingRow(b, rule, start, created) {
     b.email,
     b.discordId,
     (rules[b.location] && rules[b.location].label) || b.location,
-    Utilities.formatDate(start, TZ, 'yyyy-MM-dd'),
-    Utilities.formatDate(start, TZ, 'h:mm a z'),
+    Utilities.formatDate(start, tz(), 'yyyy-MM-dd'),
+    Utilities.formatDate(start, tz(), 'h:mm a z'),
     rule.slot_minutes,
     b.notes,
     created.eventId,
@@ -466,7 +477,7 @@ function appendBookingRow(b, rule, start, created) {
 // -------------------------------------------------------------- utilities --
 
 function dateKey(d) {
-  return Utilities.formatDate(d, TZ, 'yyyy-MM-dd');
+  return Utilities.formatDate(d, tz(), 'yyyy-MM-dd');
 }
 
 function parseDateKey(s) {
@@ -477,7 +488,7 @@ function parseDateKey(s) {
 
 /** e.g. 2026-09-11T13:00:00-04:00 — what the advanced Calendar API wants. */
 function isoWithOffset(d) {
-  return Utilities.formatDate(d, TZ, "yyyy-MM-dd'T'HH:mm:ssXXX");
+  return Utilities.formatDate(d, tz(), "yyyy-MM-dd'T'HH:mm:ssXXX");
 }
 
 var DAY_INDEX = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
