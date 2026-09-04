@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book a call</title>
+<meta name="description" content="Pick a time that works for you.">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<main class="shell">
+
+  <header class="masthead">
+    <p class="brand" id="brand">LSH</p>
+    <h1 id="title">Book a call</h1>
+    <p class="subtitle" id="subtitle"></p>
+  </header>
+
+  <ol class="steps" id="steps" aria-label="Booking progress">
+    <li data-step="location"><span>1</span>Location</li>
+    <li data-step="date"><span>2</span>Date</li>
+    <li data-step="time"><span>3</span>Time</li>
+    <li data-step="details"><span>4</span>Details</li>
+  </ol>
+
+  <div class="card">
+
+    <!-- Step 1 ---------------------------------------------------------- -->
+    <section class="panel" id="panel-location" aria-labelledby="h-location">
+      <h2 id="h-location">Where are you based?</h2>
+      <p class="hint">This decides which hours are open to you.</p>
+      <div class="locations" id="locations"></div>
+    </section>
+
+    <!-- Step 2 ---------------------------------------------------------- -->
+    <section class="panel" id="panel-date" hidden aria-labelledby="h-date">
+      <button class="back" type="button" data-back="location">Back</button>
+      <h2 id="h-date">Pick a date</h2>
+      <p class="hint" id="date-hint"></p>
+
+      <div class="calendar">
+        <div class="calendar-head">
+          <button class="nav" type="button" id="prev-month" aria-label="Previous month">&#8249;</button>
+          <p id="month-label" aria-live="polite"></p>
+          <button class="nav" type="button" id="next-month" aria-label="Next month">&#8250;</button>
+        </div>
+        <div class="weekdays" aria-hidden="true">
+          <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
+        <div class="days" id="days"></div>
+      </div>
+    </section>
+
+    <!-- Step 3 ---------------------------------------------------------- -->
+    <section class="panel" id="panel-time" hidden aria-labelledby="h-time">
+      <button class="back" type="button" data-back="date">Back</button>
+      <h2 id="h-time">Pick a time</h2>
+      <p class="hint" id="time-hint"></p>
+      <div class="slots" id="slots"></div>
+      <p class="tz-note" id="tz-note"></p>
+    </section>
+
+    <!-- Step 4 ---------------------------------------------------------- -->
+    <section class="panel" id="panel-details" hidden aria-labelledby="h-details">
+      <button class="back" type="button" data-back="time">Back</button>
+      <h2 id="h-details">Your details</h2>
+      <p class="summary" id="details-summary"></p>
+
+      <form id="booking-form" novalidate>
+        <label for="f-name">Full name <span class="req">*</span></label>
+        <input id="f-name" name="name" type="text" autocomplete="name" required>
+        <p class="error" id="e-name" hidden></p>
+
+        <label for="f-email">Email <span class="req">*</span></label>
+        <input id="f-email" name="email" type="email" autocomplete="email" required>
+        <p class="error" id="e-email" hidden></p>
+
+        <label for="f-discord">Discord ID <span class="req">*</span></label>
+        <input id="f-discord" name="discordId" type="text" placeholder="yourhandle" autocomplete="off" required>
+        <p class="error" id="e-discord" hidden></p>
+
+        <label for="f-notes">Anything I should know? <span class="opt">optional</span></label>
+        <textarea id="f-notes" name="notes" rows="3"></textarea>
+
+        <p class="error form-error" id="e-form" hidden></p>
+
+        <button class="submit" type="submit" id="submit">Confirm booking</button>
+      </form>
+    </section>
+
+    <!-- Confirmation ---------------------------------------------------- -->
+    <section class="panel confirmed" id="panel-done" hidden aria-labelledby="h-done">
+      <div class="tick" aria-hidden="true">&#10003;</div>
+      <h2 id="h-done">You are booked</h2>
+      <p class="when" id="done-when"></p>
+      <dl class="receipt" id="done-receipt"></dl>
+      <p class="hint" id="done-note">A calendar invite is on its way to your inbox.</p>
+      <button class="ghost" type="button" id="book-another">Book another time</button>
+    </section>
+
+    <div class="loading" id="loading" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="loading-text">Loading…</p>
+    </div>
+
+  </div>
+
+  <footer class="foot">
+    <p id="foot-note"></p>
+  </footer>
+
+</main>
+
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

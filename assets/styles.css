@@ -1,0 +1,471 @@
+/* Booking page — no framework, no build step. */
+
+:root {
+  color-scheme: light dark;
+
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --ink: #14161a;
+  --ink-soft: #5c6470;
+  --ink-faint: #8b94a1;
+  --line: #e2e5ea;
+  --line-strong: #cdd3db;
+  --accent: #2f5bd7;
+  --accent-ink: #ffffff;
+  --accent-soft: #eaf0ff;
+  --danger: #c0322b;
+  --ok: #1f7a4d;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(16, 22, 34, .06), 0 8px 24px rgba(16, 22, 34, .06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101216;
+    --card: #191c22;
+    --ink: #f0f2f5;
+    --ink-soft: #a3acb9;
+    --ink-faint: #767f8c;
+    --line: #2a2f38;
+    --line-strong: #3a414c;
+    --accent: #7b9bff;
+    --accent-ink: #10131a;
+    --accent-soft: #212a41;
+    --danger: #ff8078;
+    --ok: #5cd39a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+  }
+}
+
+* { box-sizing: border-box; }
+
+/* Author display rules outrank the UA stylesheet, so hidden needs restating. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
+}
+
+/* Masthead ---------------------------------------------------------------- */
+
+.masthead { text-align: center; margin-bottom: 26px; }
+
+.brand {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.masthead h1 {
+  margin: 0;
+  font-size: 27px;
+  font-weight: 640;
+  letter-spacing: -.02em;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+}
+
+/* Step rail --------------------------------------------------------------- */
+
+.steps {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+
+.steps li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-top: 9px;
+  border-top: 2px solid var(--line);
+  transition: color .15s, border-color .15s;
+}
+
+.steps li span {
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--line);
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.steps li.active { color: var(--ink); border-top-color: var(--accent); }
+.steps li.active span { background: var(--accent); color: var(--accent-ink); }
+.steps li.done { color: var(--ink-soft); border-top-color: var(--accent); }
+.steps li.done span { background: var(--accent-soft); color: var(--accent); }
+
+/* Card -------------------------------------------------------------------- */
+
+.card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 26px;
+  min-height: 340px;
+}
+
+.panel h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+  font-weight: 620;
+  letter-spacing: -.01em;
+}
+
+.hint { margin: 0 0 18px; color: var(--ink-soft); font-size: 13.5px; }
+
+.back {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0 0 14px;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.back::before { content: "\2039"; margin-right: 6px; }
+.back:hover { color: var(--ink); }
+
+/* Step 1: locations ------------------------------------------------------- */
+
+.locations { display: grid; gap: 10px; }
+
+.location {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 18px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .14s, background .14s, transform .06s;
+}
+
+.location:hover { border-color: var(--accent); background: var(--accent-soft); }
+.location:active { transform: translateY(1px); }
+.location small { display: block; font-weight: 400; font-size: 13px; color: var(--ink-soft); }
+.location::after { content: "\203A"; color: var(--ink-faint); font-size: 20px; }
+
+/* Step 2: calendar -------------------------------------------------------- */
+
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.calendar-head p { margin: 0; font-weight: 600; font-size: 15px; }
+
+.nav {
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nav:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.nav:disabled { opacity: .35; cursor: default; }
+
+.weekdays,
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.weekdays {
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.day {
+  appearance: none;
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 560;
+  cursor: pointer;
+  transition: background .14s, color .14s;
+}
+
+.day:hover { background: var(--accent); color: var(--accent-ink); }
+.day.selected { background: var(--accent); color: var(--accent-ink); }
+
+.day:disabled {
+  background: none;
+  color: var(--ink-faint);
+  opacity: .4;
+  cursor: default;
+}
+
+.day.blank { visibility: hidden; }
+
+/* Step 3: slots ----------------------------------------------------------- */
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.slot {
+  appearance: none;
+  padding: 13px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 570;
+  cursor: pointer;
+  transition: background .14s, color .14s;
+}
+
+.slot:hover { background: var(--accent); color: var(--accent-ink); }
+
+.tz-note {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-faint);
+  font-size: 12.5px;
+}
+
+/* Step 4: form ------------------------------------------------------------ */
+
+.summary {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 540;
+}
+
+form label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.req { color: var(--danger); }
+.opt { color: var(--ink-faint); font-weight: 400; }
+
+input,
+textarea {
+  width: 100%;
+  margin-bottom: 15px;
+  padding: 11px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+input.invalid { border-color: var(--danger); }
+
+.error {
+  margin: -11px 0 14px;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.form-error {
+  margin: 0 0 14px;
+  padding: 11px 13px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.submit {
+  appearance: none;
+  width: 100%;
+  padding: 13px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:hover { filter: brightness(1.07); }
+.submit:disabled { opacity: .55; cursor: default; filter: none; }
+
+/* Confirmation ------------------------------------------------------------ */
+
+.confirmed { text-align: center; padding-top: 14px; }
+
+.tick {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: var(--ok);
+  font-size: 22px;
+}
+
+.when {
+  margin: 0 0 20px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.receipt {
+  margin: 0 0 20px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: left;
+  font-size: 13.5px;
+}
+
+.receipt div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+}
+
+.receipt dt { color: var(--ink-soft); }
+.receipt dd { margin: 0; font-weight: 540; text-align: right; word-break: break-word; }
+.receipt a { color: var(--accent); }
+
+.ghost {
+  appearance: none;
+  padding: 10px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Empty + loading --------------------------------------------------------- */
+
+.empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 26px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  color: var(--ink-soft);
+  text-align: center;
+  font-size: 13.5px;
+}
+
+.loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--card) 86%, transparent);
+  color: var(--ink-soft);
+  font-size: 13.5px;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2s; }
+  * { transition: none !important; }
+}
+
+/* Footer ------------------------------------------------------------------ */
+
+.foot {
+  margin-top: 18px;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+}
+
+.foot p { margin: 0; }
+
+@media (max-width: 480px) {
+  .shell { padding: 24px 14px 40px; }
+  .card { padding: 20px 16px; }
+  .steps { font-size: 0; gap: 4px; }
+  .steps li span { font-size: 11px; }
+  .slots { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+}
