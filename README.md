@@ -84,16 +84,34 @@ minute or two.
 Open the **Settings** tab in the Sheet and change the numbers. No redeploy, no
 commit — reload the booking page and the slots have changed.
 
-| location | label | start_hour | end_hour | slot_minutes | weekdays | active |
-| --- | --- | --- | --- | --- | --- | --- |
-| philippines | Philippines | 13 | 17 | 60 | Mon,Tue,Wed,Thu,Fri | TRUE |
-| others | Others | 8 | 17 | 60 | Mon,Tue,Wed,Thu,Fri | TRUE |
+| location | label | start_times | slot_minutes | gap_minutes | weekdays | max_per_day | active |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| philippines | Philippines | 13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | | TRUE |
+| others | Others | 8,9,10,11,13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | 4 | TRUE |
 
-- **Hours are 24-hour, US Eastern.** `13`–`17` produces 1PM, 2PM, 3PM, 4PM — the
-  last slot ends at 5PM.
+- **`start_times`** is the literal list of times someone can pick, on a 24-hour
+  US Eastern clock. `13,14,15,16` offers 1PM, 2PM, 3PM and 4PM. Gaps in the list
+  are gaps in the day — Others skips `12`, so nothing can be booked at noon.
+  Half hours work too: `8:30,9:30`.
+- **`gap_minutes`** is the breathing room kept either side of a booked call. At
+  `60`, booking 2PM closes 1PM and 3PM, and 4PM stays open. Set it to `0` to
+  allow back-to-back calls.
+- **`max_per_day`** caps how many calls that location can take in a day. Leave it
+  blank for no cap. It is counted per location, so Philippines and Others each
+  keep their own tally.
 - **`weekdays`** is a comma-separated list. Leave it blank for Mon–Fri.
 - **`active`** set to `FALSE` hides that location from the page entirely.
 - Adding a row adds a new location option. Nothing else needs to change.
+
+The gap crosses locations even though the cap does not — a Philippines call at
+2PM closes the 1PM and 3PM slots for Others too, because it is the same hour of
+the same person's day. Only calls booked through this page create a gap;
+unrelated meetings on your calendar block the slot they actually cover and
+nothing more. Set `GAP_AROUND_ALL_EVENTS` to `true` in `Config.gs` if you would
+rather every meeting on the calendar reserve room around itself.
+
+To release a slot and its gap without deleting the calendar event, change that
+row's **status** in the Bookings tab from `confirmed` to anything else.
 
 To take a day off, add a row to **BlockedDates**:
 

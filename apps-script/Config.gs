@@ -1,9 +1,10 @@
 /**
  * Config.gs — knobs that change rarely.
  *
- * Anything you expect to tweak often (hours, weekdays, blocked days) lives in
- * the spreadsheet instead, on the "Settings" and "BlockedDates" tabs. Run
- * setup() once from the editor to create those tabs.
+ * Anything you expect to tweak often (the times you offer, the gap between
+ * calls, the daily maximum, days off) lives in the spreadsheet instead, on the
+ * "Settings" and "BlockedDates" tabs. Run setup() once from the editor to
+ * create those tabs.
  */
 
 var CONFIG = {
@@ -27,10 +28,41 @@ var CONFIG = {
   // day of slots. Flip to true if you use them as real blockers.
   BLOCK_ON_ALL_DAY_EVENTS: false,
 
+  /**
+   * Whether the breathing-room gap applies to everything on your calendar, or
+   * only to calls booked through this page.
+   *
+   * false (default): an unrelated 10am internal meeting blocks only the 10am
+   * slot. A call booked here at 10am also closes 9am and 11am.
+   *
+   * true: every meeting on your calendar closes the hour either side of it.
+   * Guarantees breathing room around everything, but a busy calendar will
+   * leave very few slots open.
+   */
+  GAP_AROUND_ALL_EVENTS: false,
+
   // Used only if the Settings tab is missing or empty.
   DEFAULT_LOCATIONS: [
-    { location: 'philippines', label: 'Philippines', start_hour: 13, end_hour: 17, slot_minutes: 60, weekdays: 'Mon,Tue,Wed,Thu,Fri', active: true },
-    { location: 'others',      label: 'Others',      start_hour: 8,  end_hour: 17, slot_minutes: 60, weekdays: 'Mon,Tue,Wed,Thu,Fri', active: true }
+    {
+      location: 'philippines',
+      label: 'Philippines',
+      start_times: '13,14,15,16',
+      slot_minutes: 60,
+      gap_minutes: 60,
+      weekdays: 'Mon,Tue,Wed,Thu,Fri',
+      max_per_day: '',
+      active: true
+    },
+    {
+      location: 'others',
+      label: 'Others',
+      start_times: '8,9,10,11,13,14,15,16',
+      slot_minutes: 60,
+      gap_minutes: 60,
+      weekdays: 'Mon,Tue,Wed,Thu,Fri',
+      max_per_day: 4,
+      active: true
+    }
   ]
 };
 
@@ -40,10 +72,15 @@ var SHEETS = {
   BOOKINGS: 'Bookings'
 };
 
-var SETTINGS_HEADERS = ['location', 'label', 'start_hour', 'end_hour', 'slot_minutes', 'weekdays', 'active'];
+var SETTINGS_HEADERS = [
+  'location', 'label', 'start_times', 'slot_minutes',
+  'gap_minutes', 'weekdays', 'max_per_day', 'active'
+];
+
 var BLOCKED_HEADERS = ['date', 'location', 'reason'];
+
 var BOOKING_HEADERS = [
   'timestamp', 'name', 'email', 'discord_id', 'location',
-  'date_est', 'time_est', 'duration_min', 'notes',
+  'date_est', 'time_est', 'start_ts', 'duration_min', 'notes',
   'event_id', 'meet_link', 'status'
 ];

@@ -82,8 +82,8 @@ function handleConfig() {
 
 /**
  * Which days in a month have at least one free slot. Powers the greyed-out
- * cells in the month grid. Calendar events for the whole month are fetched
- * once here rather than once per day.
+ * cells in the month grid. Calendar events and existing bookings for the whole
+ * month are fetched once here rather than once per day.
  */
 function handleDays(locationId, month) {
   var found = requireRule(locationId);
@@ -94,22 +94,15 @@ function handleDays(locationId, month) {
   }
 
   var parts = String(month).split('-');
-  var year = Number(parts[0]);
-  var mon = Number(parts[1]);
+  var monthStart = new Date(Number(parts[0]), Number(parts[1]) - 1, 1, 0, 0, 0);
+  var monthEnd = new Date(Number(parts[0]), Number(parts[1]), 1, 0, 0, 0);
 
-  var monthStart = new Date(year, mon - 1, 1, 0, 0, 0);
-  var monthEnd = new Date(year, mon, 1, 0, 0, 0);
-
-  var busy = getBusy(monthStart, monthEnd);
-  var blocked = getBlockedDates();
-  var now = new Date();
+  var ctx = buildContext(monthStart, monthEnd);
 
   var available = [];
   var cursor = new Date(monthStart.getTime());
   while (cursor < monthEnd) {
-    if (slotsForDay(found.rule, cursor, busy, blocked, now).length) {
-      available.push(dateKey(cursor));
-    }
+    if (slotsForDay(found.rule, cursor, ctx).length) available.push(dateKey(cursor));
     cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1, 0, 0, 0);
   }
 
@@ -118,8 +111,8 @@ function handleDays(locationId, month) {
     month: month,
     location: locationId,
     availableDates: available,
-    minDate: dateKey(new Date(now.getTime() + CONFIG.MIN_NOTICE_HOURS * 3600 * 1000)),
-    maxDate: dateKey(new Date(now.getTime() + CONFIG.HORIZON_DAYS * 86400 * 1000))
+    minDate: dateKey(new Date(ctx.now.getTime() + CONFIG.MIN_NOTICE_HOURS * 3600 * 1000)),
+    maxDate: dateKey(new Date(ctx.now.getTime() + CONFIG.HORIZON_DAYS * 86400 * 1000))
   };
 }
 
@@ -131,7 +124,7 @@ function handleSlots(locationId, dateStr) {
   if (!day) return { ok: false, code: 'BAD_DATE', message: 'date must be YYYY-MM-DD' };
 
   var dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1, 0, 0, 0);
-  var slots = slotsForDay(found.rule, day, getBusy(day, dayEnd), getBlockedDates(), new Date());
+  var slots = slotsForDay(found.rule, day, buildContext(day, dayEnd));
 
   return {
     ok: true,
@@ -169,17 +162,22 @@ function handleBooking(body) {
     var dayEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1, 0, 0, 0);
 
     // Re-derive the free slots and confirm the requested one is still among
-    // them. Never trust the ts the browser sent.
-    var slots = slotsForDay(rule, dayStart, getBusy(dayStart, dayEnd), getBlockedDates(), new Date());
+    // them. This re-applies the gap and the daily cap as a side effect, so
+    // there is one definition of "available" and the browser is never trusted.
+    var slots = slotsForDay(rule, dayStart, buildContext(dayStart, dayEnd));
     var match = null;
     for (var i = 0; i < slots.length; i++) {
       if (slots[i].ts === b.ts) { match = slots[i]; break; }
     }
     if (!match) {
-      return { ok: false, code: 'SLOT_TAKEN', message: 'That time was just taken. Please pick another.' };
+      return {
+        ok: false,
+        code: 'SLOT_TAKEN',
+        message: 'That time is no longer available. Please pick another.'
+      };
     }
 
-    var end = new Date(b.ts + rule.slot_minutes * 60000);
+    var end = new Date(b.ts + rule.slotMinutes * 60000);
     var created = createEvent(b, start, end);
 
     appendBookingRow(b, rule, start, created);
@@ -248,33 +246,56 @@ function isDiscordId(value) {
 // ------------------------------------------------------- slot generation --
 
 /**
- * Every availability decision for a single day, in one place.
- * Returns [] for any day that is blocked, out of range, or fully booked.
+ * Everything a day's availability depends on, read once per request.
+ * Reading the calendar and the Bookings tab per day would be far slower when
+ * the month grid asks about thirty days at once.
  */
-function slotsForDay(rule, day, busy, blocked, now) {
+function buildContext(from, to) {
+  return {
+    busy: getBusy(from, to),
+    bookings: getBookings(from, to),
+    blocked: getBlockedDates(),
+    now: new Date()
+  };
+}
+
+/**
+ * Every availability decision for a single day, in one place.
+ * Returns [] for any day that is blocked, out of range, at its daily maximum,
+ * or fully taken.
+ */
+function slotsForDay(rule, day, ctx) {
   var out = [];
-  if (!rule || !rule.active) return out;
+  if (!rule || !rule.active || !rule.startTimes.length) return out;
 
   var key = dateKey(day);
-  if (blocked[key] && (blocked[key].all || blocked[key][rule.location])) return out;
+  if (ctx.blocked[key] && (ctx.blocked[key].all || ctx.blocked[key][rule.location])) return out;
   if (rule.weekdays.indexOf(day.getDay()) === -1) return out;
 
-  var earliest = new Date(now.getTime() + CONFIG.MIN_NOTICE_HOURS * 3600 * 1000);
-  var latest = new Date(now.getTime() + CONFIG.HORIZON_DAYS * 86400 * 1000);
+  var earliest = new Date(ctx.now.getTime() + CONFIG.MIN_NOTICE_HOURS * 3600 * 1000);
+  var latest = new Date(ctx.now.getTime() + CONFIG.HORIZON_DAYS * 86400 * 1000);
   if (day > latest) return out;
 
-  var startMin = rule.start_hour * 60;
-  var endMin = rule.end_hour * 60;
-  var step = rule.slot_minutes;
-  if (!(step > 0) || !(endMin > startMin)) return out;
+  // Daily maximum for this location. Counted per location, so Philippines and
+  // Others each keep their own tally.
+  if (rule.maxPerDay > 0 && countBookings(ctx.bookings, key, rule.location) >= rule.maxPerDay) {
+    return out;
+  }
 
-  for (var m = startMin; m + step <= endMin; m += step) {
+  for (var i = 0; i < rule.startTimes.length; i++) {
+    var m = rule.startTimes[i];
     var slotStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(m / 60), m % 60, 0);
-    var slotEnd = new Date(slotStart.getTime() + step * 60000);
+    var slotEnd = new Date(slotStart.getTime() + rule.slotMinutes * 60000);
 
     if (slotStart < earliest) continue;
     if (slotStart > latest) continue;
-    if (overlapsBusy(slotStart, slotEnd, busy)) continue;
+
+    // Anything already on the calendar blocks the slot it actually covers.
+    if (overlaps(slotStart, slotEnd, ctx.busy, CONFIG.GAP_AROUND_ALL_EVENTS ? rule.gapMinutes : 0)) continue;
+
+    // Calls booked through this page also close the hour either side, so two
+    // calls never run back to back.
+    if (overlaps(slotStart, slotEnd, ctx.bookings, rule.gapMinutes)) continue;
 
     out.push({
       ts: slotStart.getTime(),
@@ -285,17 +306,36 @@ function slotsForDay(rule, day, busy, blocked, now) {
   return out;
 }
 
-function overlapsBusy(start, end, busy) {
-  for (var i = 0; i < busy.length; i++) {
-    if (start < busy[i].end && end > busy[i].start) return true;
+/**
+ * Does [start, end) hit any of these intervals, once each interval is widened
+ * by padMinutes on both sides?
+ *
+ * With a 60-minute pad, a 2pm-3pm booking guards 1pm-4pm: the 1pm and 3pm
+ * slots collide with it, while a 4pm slot starts exactly as the guard ends and
+ * stays open.
+ */
+function overlaps(start, end, intervals, padMinutes) {
+  var pad = (padMinutes || 0) * 60000;
+  var s = start.getTime();
+  var e = end.getTime();
+
+  for (var i = 0; i < intervals.length; i++) {
+    if (s < intervals[i].end.getTime() + pad && e > intervals[i].start.getTime() - pad) return true;
   }
   return false;
 }
 
-/** Existing events in [from, to), reduced to plain busy intervals. */
+function countBookings(bookings, dayKey, locationId) {
+  var n = 0;
+  for (var i = 0; i < bookings.length; i++) {
+    if (bookings[i].location === locationId && dateKey(bookings[i].start) === dayKey) n++;
+  }
+  return n;
+}
+
+/** Existing calendar events in [from, to), reduced to plain busy intervals. */
 function getBusy(from, to) {
-  var cal = getCalendar();
-  var events = cal.getEvents(from, to);
+  var events = getCalendar().getEvents(from, to);
   var busy = [];
 
   for (var i = 0; i < events.length; i++) {
@@ -307,6 +347,35 @@ function getBusy(from, to) {
   }
 
   return busy;
+}
+
+/**
+ * Confirmed bookings made through this page, from the Bookings tab.
+ *
+ * The sheet rather than the calendar is the source of truth here, because the
+ * gap and the daily cap should follow calls booked through this page, not
+ * every meeting you happen to have. Set a row's status to anything other than
+ * "confirmed" (say "cancelled") to release its slot and its gap.
+ */
+function getBookings(from, to) {
+  var rows = readTab(SHEETS.BOOKINGS);
+  var out = [];
+
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (String(r.status || '').trim().toLowerCase() !== 'confirmed') continue;
+
+    var ts = Number(r.start_ts);
+    if (!ts || !isFinite(ts)) continue;
+
+    var start = new Date(ts);
+    var end = new Date(ts + (Number(r.duration_min) || 60) * 60000);
+    if (end <= from || start >= to) continue;
+
+    out.push({ start: start, end: end, location: String(r.location || '').trim() });
+  }
+
+  return out;
 }
 
 function getCalendar() {
@@ -383,18 +452,57 @@ function getRules() {
     var id = String(r.location || '').trim();
     if (!id) continue;
 
+    var slotMinutes = Number(r.slot_minutes) || 60;
+
     rules[id] = {
       location: id,
       label: String(r.label || id).trim(),
-      start_hour: Number(r.start_hour),
-      end_hour: Number(r.end_hour),
-      slot_minutes: Number(r.slot_minutes) || 60,
+      startTimes: parseStartTimes(r.start_times, r.start_hour, r.end_hour, slotMinutes),
+      slotMinutes: slotMinutes,
+      gapMinutes: r.gap_minutes === '' || r.gap_minutes == null ? 0 : Number(r.gap_minutes) || 0,
       weekdays: parseWeekdays(r.weekdays),
+      maxPerDay: Number(r.max_per_day) || 0,
       active: isTrue(r.active)
     };
   }
 
   return rules;
+}
+
+/**
+ * "8,9,10,11,13,14,15,16" to minutes past midnight. Also accepts "8:30".
+ *
+ * Falls back to the older start_hour/end_hour pair so a Settings tab created
+ * before this column existed keeps working until it is upgraded.
+ */
+function parseStartTimes(value, fallbackStart, fallbackEnd, slotMinutes) {
+  var text = String(value == null ? '' : value).trim();
+  var out = [];
+
+  if (text) {
+    var parts = text.split(',');
+    for (var i = 0; i < parts.length; i++) {
+      var bit = parts[i].trim();
+      if (!bit) continue;
+
+      var hm = bit.split(':');
+      var h = Number(hm[0]);
+      var m = hm.length > 1 ? Number(hm[1]) : 0;
+      if (!isFinite(h) || !isFinite(m) || h < 0 || h > 23 || m < 0 || m > 59) continue;
+
+      var mins = h * 60 + m;
+      if (out.indexOf(mins) === -1) out.push(mins);
+    }
+  } else {
+    var s = Number(fallbackStart);
+    var e = Number(fallbackEnd);
+    if (isFinite(s) && isFinite(e) && slotMinutes > 0) {
+      for (var t = s * 60; t + slotMinutes <= e * 60; t += slotMinutes) out.push(t);
+    }
+  }
+
+  out.sort(function (a, b) { return a - b; });
+  return out;
 }
 
 function requireRule(locationId) {
@@ -456,17 +564,17 @@ function readTab(name) {
 function appendBookingRow(b, rule, start, created) {
   var ss = SpreadsheetApp.getActive();
   var sheet = ss.getSheetByName(SHEETS.BOOKINGS) || createTab(ss, SHEETS.BOOKINGS, BOOKING_HEADERS);
-  var rules = getRules();
 
   sheet.appendRow([
     new Date(),
     b.name,
     b.email,
     b.discordId,
-    (rules[b.location] && rules[b.location].label) || b.location,
+    b.location,
     Utilities.formatDate(start, tz(), 'yyyy-MM-dd'),
     Utilities.formatDate(start, tz(), 'h:mm a z'),
-    rule.slot_minutes,
+    start.getTime(),
+    rule.slotMinutes,
     b.notes,
     created.eventId,
     created.meetLink,
@@ -517,30 +625,67 @@ function isTrue(value) {
 // ------------------------------------------------------------------ setup --
 
 /**
- * Run once from the editor. Creates the three tabs with their headers and
- * seeds the default availability rules. Safe to re-run: existing tabs are
+ * Run once on a fresh spreadsheet. Creates the three tabs with their headers
+ * and seeds the default availability rules. Safe to re-run: existing tabs are
  * left alone.
  */
 function setup() {
   var ss = SpreadsheetApp.getActive();
 
-  if (!ss.getSheetByName(SHEETS.SETTINGS)) {
-    var settings = createTab(ss, SHEETS.SETTINGS, SETTINGS_HEADERS);
-    var defaults = CONFIG.DEFAULT_LOCATIONS.map(function (r) {
-      return [r.location, r.label, r.start_hour, r.end_hour, r.slot_minutes, r.weekdays, r.active];
-    });
-    settings.getRange(2, 1, defaults.length, SETTINGS_HEADERS.length).setValues(defaults);
-  }
-
-  if (!ss.getSheetByName(SHEETS.BLOCKED)) {
-    createTab(ss, SHEETS.BLOCKED, BLOCKED_HEADERS);
-  }
-
-  if (!ss.getSheetByName(SHEETS.BOOKINGS)) {
-    createTab(ss, SHEETS.BOOKINGS, BOOKING_HEADERS);
-  }
+  if (!ss.getSheetByName(SHEETS.SETTINGS)) writeSettingsTab(ss);
+  if (!ss.getSheetByName(SHEETS.BLOCKED)) createTab(ss, SHEETS.BLOCKED, BLOCKED_HEADERS);
+  if (!ss.getSheetByName(SHEETS.BOOKINGS)) createTab(ss, SHEETS.BOOKINGS, BOOKING_HEADERS);
 
   ss.toast('Booking tabs are ready.', 'Setup complete', 5);
+}
+
+/**
+ * Rebuilds the Settings tab with the current columns and re-seeds the default
+ * rules, and brings the Bookings header row up to date.
+ *
+ * Run this after pasting in a version of the script that changed the columns.
+ * It replaces the Settings tab wholesale, so any hand-edits there are lost —
+ * note them down first. Booking rows are never touched.
+ */
+function upgradeSettings() {
+  var ss = SpreadsheetApp.getActive();
+
+  var settings = ss.getSheetByName(SHEETS.SETTINGS);
+  if (settings) ss.deleteSheet(settings);
+  writeSettingsTab(ss);
+
+  var bookings = ss.getSheetByName(SHEETS.BOOKINGS);
+  if (!bookings) {
+    createTab(ss, SHEETS.BOOKINGS, BOOKING_HEADERS);
+  } else {
+    bookings.getRange(1, 1, 1, BOOKING_HEADERS.length)
+      .setValues([BOOKING_HEADERS])
+      .setFontWeight('bold');
+  }
+
+  if (!ss.getSheetByName(SHEETS.BLOCKED)) createTab(ss, SHEETS.BLOCKED, BLOCKED_HEADERS);
+
+  ss.toast('Settings rebuilt with the current columns.', 'Upgrade complete', 6);
+}
+
+function writeSettingsTab(ss) {
+  var sheet = createTab(ss, SHEETS.SETTINGS, SETTINGS_HEADERS);
+
+  var rows = CONFIG.DEFAULT_LOCATIONS.map(function (r) {
+    return [
+      r.location, r.label, r.start_times, r.slot_minutes,
+      r.gap_minutes, r.weekdays, r.max_per_day, r.active
+    ];
+  });
+
+  // start_times and weekdays are comma lists — keep Sheets from reformatting
+  // them into something else.
+  sheet.getRange(2, 3, rows.length, 1).setNumberFormat('@');
+  sheet.getRange(2, 6, rows.length, 1).setNumberFormat('@');
+  sheet.getRange(2, 1, rows.length, SETTINGS_HEADERS.length).setValues(rows);
+  sheet.autoResizeColumns(1, SETTINGS_HEADERS.length);
+
+  return sheet;
 }
 
 function createTab(ss, name, headers) {
