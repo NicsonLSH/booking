@@ -4,48 +4,32 @@
    navy #2A2E40 (logo wordmark, headings), orange #D7782E (buttons, dividers),
    page ground #F5F5F5. */
 
+/* Dark for every visitor, regardless of their device setting — no
+   prefers-color-scheme block, so this is the one and only palette. The ground
+   is built down from the brand navy rather than a neutral grey, and the orange
+   is lifted slightly so it holds up against it. */
+
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 
   --navy: #2a2e40;
   --orange: #d7782e;
 
-  --bg: #f5f5f5;
-  --card: #ffffff;
-  --ink: #2a2e40;
-  --ink-soft: #5e6373;
-  --ink-faint: #8a8f9e;
-  --line: #e4e5ea;
-  --line-strong: #cfd1da;
-  --accent: #d7782e;
-  --accent-ink: #ffffff;
-  --accent-soft: #fbeee3;
-  --logo-ink: #2a2e40;
-  --danger: #c0322b;
-  --ok: #1f7a4d;
+  --bg: #1b1e2b;
+  --card: #252939;
+  --ink: #f2f3f6;
+  --ink-soft: #aeb3c2;
+  --ink-faint: #7c8296;
+  --line: #333849;
+  --line-strong: #464c60;
+  --accent: #e28a45;
+  --accent-ink: #1b1e2b;
+  --accent-soft: #382a1e;
+  --logo-ink: #ffffff;
+  --danger: #ff8078;
+  --ok: #5cd39a;
   --radius: 12px;
-  --shadow: 0 1px 2px rgba(42, 46, 64, .06), 0 8px 24px rgba(42, 46, 64, .08);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Dark mode is built from the brand navy rather than a neutral grey, and
-       the orange is lifted a little so it holds up on a dark ground. */
-    --bg: #1b1e2b;
-    --card: #252939;
-    --ink: #f2f3f6;
-    --ink-soft: #aeb3c2;
-    --ink-faint: #7c8296;
-    --line: #333849;
-    --line-strong: #464c60;
-    --accent: #e28a45;
-    --accent-ink: #1b1e2b;
-    --accent-soft: #382a1e;
-    --logo-ink: #ffffff;
-    --danger: #ff8078;
-    --ok: #5cd39a;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
-  }
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
 }
 
 * { box-sizing: border-box; }

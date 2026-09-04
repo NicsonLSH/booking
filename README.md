@@ -107,24 +107,30 @@ Use `all` to block a date for every location, or a specific location id.
 ## Branding
 
 Colours are taken from legalsupporthelp.com and live as CSS custom properties at
-the top of `assets/styles.css`:
+the top of `assets/styles.css`.
 
-| Token | Light | Dark | Role |
-| --- | --- | --- | --- |
-| `--accent` | `#D7782E` | `#E28A45` | Brand orange — buttons, borders, selected states |
-| `--ink` | `#2A2E40` | `#F2F3F6` | Brand navy — headings and body text |
-| `--bg` | `#F5F5F5` | `#1B1E2B` | Page ground |
+**The page is dark for every visitor**, whatever their device is set to. There is
+no `prefers-color-scheme` block — `:root` holds the only palette, so changing a
+token there changes the page for everyone.
+
+| Token | Value | Role |
+| --- | --- | --- |
+| `--accent` | `#E28A45` | Brand orange, lifted for a dark ground — buttons, borders, selected states |
+| `--bg` | `#1B1E2B` | Page ground, built down from the brand navy |
+| `--card` | `#252939` | Panel surface |
+| `--ink` | `#F2F3F6` | Text |
+| `--logo-ink` | `#FFFFFF` | Logo wordmark |
+
+The source brand colours (`--navy: #2A2E40`, `--orange: #D7782E`) are kept as
+tokens for reference even though the dark palette is derived from them.
 
 The logo is inlined in `index.html` rather than loaded as an image, so its
-wordmark paths can use `fill="currentColor"` and follow `--logo-ink` — navy on
-light, white on dark. The orange mark inside keeps its brand colour in both.
-`assets/logo.svg` is the untouched original, used as the favicon.
+wordmark paths can use `fill="currentColor"` and pick up `--logo-ink`. The orange
+mark inside keeps its exact brand colour. `assets/logo.svg` is the untouched
+original, used as the favicon.
 
-One thing to know: white text on `#D7782E` measures **3.2:1**, below the WCAG AA
-threshold of 4.5:1 for normal text. That is how the brand orange behaves on the
-main site too, so it is kept here for consistency, and the orange is used for
-fills and borders rather than for text. If you would rather be strictly AA,
-darken `--accent` to about `#A0541A`.
+To go back to a light page, or to following the visitor's device setting, the
+whole change is in that one `:root` block.
 
 ## Settings that live in code
 
