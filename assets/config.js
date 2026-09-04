@@ -9,8 +9,8 @@ window.BOOKING_CONFIG = {
   API_URL: 'https://script.google.com/macros/s/AKfycbxG0C7yW0wypAmnJ_0Rw3SpKEcX-eFSLAk0LqwOWtWN8gSP2VFwC7mN6hXhWTTtrMG2TA/exec',
 
   // Page copy. The logo is inline in index.html so it can follow the theme.
-  TITLE: 'Book a call',
-  SUBTITLE: 'Talk to a legal virtual assistant about what you need.',
+  TITLE: 'Book a Meeting',
+  SUBTITLE: 'Choose a time for your interview with our HR team.',
   DURATION_LABEL: '1 hour',
 
   // Shown under the time slots so nobody misreads the timezone.
