@@ -12,8 +12,27 @@ var CONFIG = {
   // constructed and formatted in this zone.
   TIMEZONE: 'America/New_York',
 
-  // 'primary' means the calendar of whoever deployed the script.
-  CALENDAR_ID: 'primary',
+  /**
+   * Where bookings are written, and the only calendar checked for conflicts.
+   *
+   * This is the "HR Calendar", kept separate from the primary calendar so
+   * personal reminders and all-day markers do not eat bookable hours. The
+   * flip side is that meetings on the primary calendar no longer block
+   * bookings — see BUSY_CALENDAR_IDS below.
+   *
+   * 'primary' would mean the calendar of whoever deployed the script.
+   */
+  CALENDAR_ID: 'c_597677ca4b68e6dafed3322f99185cbccf0ed15dc2a37538bf15443f7120632d@group.calendar.google.com',
+
+  /**
+   * Extra calendars checked for conflicts but never written to. Nothing is
+   * booked over a busy hour on these, but no booking ever lands on them.
+   *
+   * Add 'primary' here to keep your own meetings from being double-booked
+   * while bookings still go to the HR Calendar. Leave empty to check only
+   * CALENDAR_ID.
+   */
+  BUSY_CALENDAR_IDS: [],
 
   // How far ahead someone must book. 24 = no same-day surprises.
   MIN_NOTICE_HOURS: 24,

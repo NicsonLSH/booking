@@ -162,9 +162,32 @@ pasting the file back into the editor and redeploying (see below).
 | --- | --- | --- |
 | `MIN_NOTICE_HOURS` | `24` | How far ahead someone must book |
 | `HORIZON_DAYS` | `60` | How far into the future the calendar opens |
-| `CALENDAR_ID` | `primary` | Which calendar events land on |
+| `CALENDAR_ID` | HR Calendar | Where bookings are written, and the first calendar checked for conflicts |
+| `BUSY_CALENDAR_IDS` | `[]` | Extra calendars checked for conflicts but never written to |
 | `EVENT_TITLE` | `Call — {name}` | Event title template |
 | `BLOCK_ON_ALL_DAY_EVENTS` | `false` | Whether all-day events wipe out a day |
+
+## Which calendars are consulted
+
+Bookings are written to `CALENDAR_ID` — the HR Calendar — and never anywhere
+else. Keeping them off the primary calendar means personal reminders and
+all-day markers there cannot quietly remove bookable hours.
+
+The catch is that conflict checking follows the same list. With
+`BUSY_CALENDAR_IDS` empty, a meeting on your primary calendar will *not* stop
+someone booking over it. Adding `'primary'` to that array closes the gap:
+
+```js
+BUSY_CALENDAR_IDS: ['primary'],
+```
+
+Those calendars are read only. An event on one blocks the hour it covers;
+nothing is ever written to them.
+
+Three kinds of event are ignored on every calendar: all-day events (unless
+`BLOCK_ON_ALL_DAY_EVENTS` is on), invitations you have declined, and anything
+marked **Show as: Free**. That last one is the escape hatch for a reminder you
+want on the calendar without it costing you a bookable hour.
 
 ## Two things that will otherwise cost you an hour
 

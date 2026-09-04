@@ -355,16 +355,29 @@ function getBusy(from, to) {
  * and should not remove a bookable hour.
  */
 function getEventsDetailed(from, to) {
-  if (typeof Calendar !== 'undefined' && Calendar.Events) return eventsViaApi(from, to);
-  return eventsViaCalendarApp(from, to);
+  var ids = [CONFIG.CALENDAR_ID].concat(CONFIG.BUSY_CALENDAR_IDS || []);
+  var out = [];
+
+  for (var i = 0; i < ids.length; i++) {
+    var events = (typeof Calendar !== 'undefined' && Calendar.Events)
+      ? eventsViaApi(ids[i], from, to)
+      : eventsViaCalendarApp(ids[i], from, to);
+
+    for (var e = 0; e < events.length; e++) {
+      events[e].calendar = ids[i];
+      out.push(events[e]);
+    }
+  }
+
+  return out;
 }
 
-function eventsViaApi(from, to) {
+function eventsViaApi(calendarId, from, to) {
   var out = [];
   var pageToken = null;
 
   do {
-    var res = Calendar.Events.list(CONFIG.CALENDAR_ID, {
+    var res = Calendar.Events.list(calendarId, {
       timeMin: from.toISOString(),
       timeMax: to.toISOString(),
       singleEvents: true,      // expand recurring events into real occurrences
@@ -400,8 +413,8 @@ function eventsViaApi(from, to) {
 }
 
 /** Fallback for before the advanced Calendar service is switched on. */
-function eventsViaCalendarApp(from, to) {
-  var events = getCalendar().getEvents(from, to);
+function eventsViaCalendarApp(calendarId, from, to) {
+  var events = getCalendar(calendarId).getEvents(from, to);
   var out = [];
 
   for (var i = 0; i < events.length; i++) {
@@ -460,11 +473,12 @@ function getBookings(from, to) {
   return out;
 }
 
-function getCalendar() {
-  var cal = CONFIG.CALENDAR_ID === 'primary'
+function getCalendar(calendarId) {
+  var id = calendarId || CONFIG.CALENDAR_ID;
+  var cal = id === 'primary'
     ? CalendarApp.getDefaultCalendar()
-    : CalendarApp.getCalendarById(CONFIG.CALENDAR_ID);
-  if (!cal) throw new Error('Calendar not found: ' + CONFIG.CALENDAR_ID);
+    : CalendarApp.getCalendarById(id);
+  if (!cal) throw new Error('Calendar not found: ' + id + ' — check the ID and that you can edit it.');
   return cal;
 }
 
@@ -757,7 +771,8 @@ function diagnose() {
       Utilities.formatDate(ev.end, tz(), 'h:mm a') +
       '  |  ' + ev.title +
       (why.length ? '  [' + why.join(', ') + ']' : '') +
-      '  [blocks slots: ' + (ev.counted ? 'yes' : 'no') + ']'
+      '  [blocks slots: ' + (ev.counted ? 'yes' : 'no') + ']' +
+      '  [from: ' + shortCalendarName(ev.calendar) + ']'
     );
   }
 
@@ -786,6 +801,12 @@ function diagnose() {
 
     Logger.log(minutesToLabel(m) + '  ->  ' + why);
   }
+}
+
+/** Calendar ids are long; the leading chunk is enough to tell them apart. */
+function shortCalendarName(id) {
+  if (!id || id === 'primary') return 'primary';
+  return String(id).split('@')[0].slice(0, 12) + '…';
 }
 
 function minutesToLabel(m) {
