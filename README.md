@@ -87,17 +87,17 @@ commit — reload the booking page and the slots have changed.
 | location | label | start_times | slot_minutes | gap_minutes | weekdays | max_per_day | event_title | active |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | philippines | Philippines | 13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | | Billy - General Virtual Assistant Interview \| {name} | TRUE |
-| others | Others | 8,9,10,11,13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | 4 | Charly - General Virtual Assistant Interview \| {name} | TRUE |
+| others | Latin America | 8,9,10,11,13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | 4 | Charly - General Virtual Assistant Interview \| {name} | TRUE |
 
 - **`start_times`** is the literal list of times someone can pick, on a 24-hour
   US Eastern clock. `13,14,15,16` offers 1PM, 2PM, 3PM and 4PM. Gaps in the list
-  are gaps in the day — Others skips `12`, so nothing can be booked at noon.
+  are gaps in the day — Latin America skips `12`, so nothing can be booked at noon.
   Half hours work too: `8:30,9:30`.
 - **`gap_minutes`** is the breathing room kept either side of a booked call. At
   `60`, booking 2PM closes 1PM and 3PM, and 4PM stays open. Set it to `0` to
   allow back-to-back calls.
 - **`max_per_day`** caps how many calls that location can take in a day. Leave it
-  blank for no cap. It is counted per location, so Philippines and Others each
+  blank for no cap. It is counted per location, so Philippines and Latin America each
   keep their own tally.
 - **`event_title`** is what the calendar entry is called. `{name}` is replaced
   with whatever the person typed as their full name, so
@@ -108,7 +108,7 @@ commit — reload the booking page and the slots have changed.
 - **`active`** set to `FALSE` hides that location from the page entirely.
 - Adding a row adds a new location option. Nothing else needs to change.
 
-**Each location keeps its own diary.** Philippines (Billy) and Others (Charly)
+**Each location keeps its own diary.** Philippines (Billy) and Latin America (Charly)
 are different interviewers, so both can be booked for 1PM on the same day. A
 booking closes slots, and spends its gap, only within its own location, and the
 daily cap is counted per location too.
@@ -124,11 +124,11 @@ applies to comes from the title:
 | Event title | Closes the hour for |
 | --- | --- |
 | `Billy - Leave` | Philippines only |
-| `Charly OOO` | Others only |
+| `Charly OOO` | Latin America only |
 | `Public holiday` | both |
 
 The words that do this live in the **block_keywords** column, one comma-list per
-location — `Billy,Philippines` and `Charly,Others` by default. A title matching
+location — `Billy,Philippines` and `Charly,Latin America,Others` by default. A title matching
 nothing applies to everyone, which is the right default for a genuine shared
 blocker. Add a nickname to that column and it starts working immediately.
 

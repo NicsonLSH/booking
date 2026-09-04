@@ -99,8 +99,10 @@ var CONFIG = {
       active: true
     },
     {
+      // The id stays 'others' even though the label changed — it is stamped on
+      // every booking already made, and renaming it would orphan them.
       location: 'others',
-      label: 'Others',
+      label: 'Latin America',
       start_times: '8,9,10,11,13,14,15,16',
       slot_minutes: 60,
       gap_minutes: 60,
@@ -108,7 +110,7 @@ var CONFIG = {
       max_per_day: 4,
       event_title: 'Charly - General Virtual Assistant Interview | {name}',
       interviewer_email: 'sourcing@legalsupporthelp.com',
-      block_keywords: 'Charly,Others',
+      block_keywords: 'Charly,Latin America,Others',
       active: true
     }
   ]
