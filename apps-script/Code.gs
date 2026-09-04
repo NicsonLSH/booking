@@ -259,13 +259,16 @@ function buildContext(from, to) {
     var ev = events[i];
     if (!ev.counted) continue;
 
-    busy.push({ start: ev.start, end: ev.end });
-
     // Calls booked through this page are tagged when they are created, so they
-    // can be told apart from anything else on the calendar. Only these earn a
-    // gap either side.
-    if (ev.booking) {
+    // can be told apart from anything else on the calendar. They are kept out
+    // of `busy` because who they block depends on their location — see
+    // slotsForDay. Everything else blocks every location outright.
+    // A tagged booking with no location recorded cannot be attributed to one
+    // interviewer, so it is treated as blocking everyone rather than nobody.
+    if (ev.booking && ev.bookingLocation) {
       bookings.push({ start: ev.start, end: ev.end, location: ev.bookingLocation });
+    } else {
+      busy.push({ start: ev.start, end: ev.end });
     }
   }
 
@@ -294,6 +297,13 @@ function slotsForDay(rule, day, ctx) {
   var latest = new Date(ctx.now.getTime() + CONFIG.HORIZON_DAYS * 86400 * 1000);
   if (day > latest) return out;
 
+  // Which existing bookings this location has to work around. With separate
+  // interviewers that is only its own; otherwise every booking is the same
+  // person's hour.
+  var rivals = CONFIG.LOCATIONS_BOOK_INDEPENDENTLY
+    ? bookingsFor(ctx.bookings, rule.location)
+    : ctx.bookings;
+
   // Daily maximum for this location. Counted per location, so Philippines and
   // Others each keep their own tally.
   if (rule.maxPerDay > 0 && countBookings(ctx.bookings, key, rule.location) >= rule.maxPerDay) {
@@ -311,9 +321,9 @@ function slotsForDay(rule, day, ctx) {
     // Anything already on the calendar blocks the slot it actually covers.
     if (overlaps(slotStart, slotEnd, ctx.busy, CONFIG.GAP_AROUND_ALL_EVENTS ? rule.gapMinutes : 0)) continue;
 
-    // Calls booked through this page also close the hour either side, so two
-    // calls never run back to back.
-    if (overlaps(slotStart, slotEnd, ctx.bookings, rule.gapMinutes)) continue;
+    // Calls booked through this page also close the hour either side, so this
+    // interviewer never runs two calls back to back.
+    if (overlaps(slotStart, slotEnd, rivals, rule.gapMinutes)) continue;
 
     out.push({
       ts: slotStart.getTime(),
@@ -341,6 +351,14 @@ function overlaps(start, end, intervals, padMinutes) {
     if (s < intervals[i].end.getTime() + pad && e > intervals[i].start.getTime() - pad) return true;
   }
   return false;
+}
+
+function bookingsFor(bookings, locationId) {
+  var out = [];
+  for (var i = 0; i < bookings.length; i++) {
+    if (bookings[i].location === locationId) out.push(bookings[i]);
+  }
+  return out;
 }
 
 function countBookings(bookings, dayKey, locationId) {

@@ -51,6 +51,21 @@ var CONFIG = {
    */
   RELEASE_ON_GUEST_DECLINE: true,
 
+  /**
+   * Whether each location keeps its own diary.
+   *
+   * true: Billy and Charly are different interviewers, so both can be booked
+   * for 1pm on the same day. A booking only closes slots — and only spends its
+   * gap — within its own location.
+   *
+   * false: every booking is the same person's hour, so a Philippines call at
+   * 1pm also closes 1pm for Others.
+   *
+   * Either way, anything on the calendar that was not booked through this page
+   * (a holiday, a company meeting) still blocks every location.
+   */
+  LOCATIONS_BOOK_INDEPENDENTLY: true,
+
   // All-day events (birthdays, OOO markers) usually shouldn't wipe out a whole
   // day of slots. Flip to true if you use them as real blockers.
   BLOCK_ON_ALL_DAY_EVENTS: false,

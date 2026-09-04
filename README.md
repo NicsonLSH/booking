@@ -108,12 +108,18 @@ commit — reload the booking page and the slots have changed.
 - **`active`** set to `FALSE` hides that location from the page entirely.
 - Adding a row adds a new location option. Nothing else needs to change.
 
-The gap crosses locations even though the cap does not — a Philippines call at
-2PM closes the 1PM and 3PM slots for Others too, because it is the same hour of
-the same person's day. Only calls booked through this page create a gap;
-unrelated meetings on your calendar block the slot they actually cover and
-nothing more. Set `GAP_AROUND_ALL_EVENTS` to `true` in `Config.gs` if you would
-rather every meeting on the calendar reserve room around itself.
+**Each location keeps its own diary.** Philippines (Billy) and Others (Charly)
+are different interviewers, so both can be booked for 1PM on the same day. A
+booking closes slots, and spends its gap, only within its own location, and the
+daily cap is counted per location too.
+
+Anything on the calendar that was *not* booked through this page — a holiday, a
+company meeting — still blocks that hour for every location. To go back to one
+shared diary, set `LOCATIONS_BOOK_INDEPENDENTLY` to `false` in `Config.gs`.
+
+Unrelated meetings block the slot they actually cover and nothing more. Set
+`GAP_AROUND_ALL_EVENTS` to `true` if you would rather every meeting on the
+calendar reserve room around itself.
 
 **To cancel a booking, delete its event from the HR Calendar.** The slot and its
 gap reopen straight away. The calendar is what availability reads; the Bookings
