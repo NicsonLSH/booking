@@ -119,15 +119,18 @@ token there changes the page for everyone.
 | `--bg` | `#1B1E2B` | Page ground, built down from the brand navy |
 | `--card` | `#252939` | Panel surface |
 | `--ink` | `#F2F3F6` | Text |
-| `--logo-ink` | `#FFFFFF` | Logo wordmark |
+| `--logo-plate` | `#FFFFFF` | The light panel the logo sits on |
 
 The source brand colours (`--navy: #2A2E40`, `--orange: #D7782E`) are kept as
 tokens for reference even though the dark palette is derived from them.
 
-The logo is inlined in `index.html` rather than loaded as an image, so its
-wordmark paths can use `fill="currentColor"` and pick up `--logo-ink`. The orange
-mark inside keeps its exact brand colour. `assets/logo.svg` is the untouched
-original, used as the favicon.
+The logo keeps its exact brand colours — navy `#2A2E40` wordmark, orange
+`#D7782E` mark — and therefore sits on a white plate, since navy on the dark
+ground is effectively invisible. The alternative would have been recolouring the
+wordmark white; the plate was chosen so the asset stays untouched. Adjust the
+plate through `--logo-plate` and the `.logo-link` padding and radius.
+
+`assets/logo.svg` is the same file, also used as the favicon.
 
 To go back to a light page, or to following the visitor's device setting, the
 whole change is in that one `:root` block.

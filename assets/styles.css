@@ -25,7 +25,7 @@
   --accent: #e28a45;
   --accent-ink: #1b1e2b;
   --accent-soft: #382a1e;
-  --logo-ink: #ffffff;
+  --logo-plate: #ffffff;
   --danger: #ff8078;
   --ok: #5cd39a;
   --radius: 12px;
@@ -55,12 +55,15 @@ body {
 
 .masthead { text-align: center; margin-bottom: 26px; }
 
+/* The logo keeps its exact brand colours — navy wordmark, orange mark — so it
+   needs a light plate to sit on. Recolouring it to white would have been the
+   other option, but this way the asset is untouched. */
 .logo-link {
   display: inline-block;
   margin-bottom: 18px;
-  /* The wordmark paths are fill="currentColor" so it inverts in dark mode;
-     the orange mark inside keeps its brand colour either way. */
-  color: var(--logo-ink);
+  padding: 16px 22px;
+  border-radius: 12px;
+  background: var(--logo-plate);
   line-height: 0;
 }
 
