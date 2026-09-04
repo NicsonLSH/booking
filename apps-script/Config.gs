@@ -41,6 +41,15 @@ var CONFIG = {
   // {name} is replaced with the guest's full name.
   EVENT_TITLE: 'Call — {name}',
 
+  /**
+   * When the person who booked declines the invitation, reopen their slot so
+   * someone else can take it. The event stays on the calendar until you delete
+   * it — this only stops it holding the hour.
+   *
+   * Set to false if a declined call should keep its time reserved.
+   */
+  RELEASE_ON_GUEST_DECLINE: true,
+
   // All-day events (birthdays, OOO markers) usually shouldn't wipe out a whole
   // day of slots. Flip to true if you use them as real blockers.
   BLOCK_ON_ALL_DAY_EVENTS: false,

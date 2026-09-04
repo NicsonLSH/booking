@@ -115,6 +115,24 @@ gap reopen straight away. The calendar is what availability reads; the Bookings
 tab is a record of what was booked, and editing it changes nothing about which
 hours are offered.
 
+**If the guest declines the invitation, the slot reopens on its own.** The event
+stays on your calendar so you can see what happened, but it no longer holds the
+hour. Set `RELEASE_ON_GUEST_DECLINE` to `false` in `Config.gs` to keep declined
+calls reserved instead.
+
+### Keeping the status column honest
+
+The Bookings tab has a **Bookings** menu at the top of the spreadsheet:
+
+- **Refresh statuses now** — reads the calendar and updates every row's status
+  to `confirmed`, `declined` (the guest said no) or `cancelled` (the event was
+  deleted).
+- **Refresh automatically every 15 minutes** — installs a trigger that does the
+  same on a schedule. Run once; it replaces any earlier trigger.
+
+Without this the status column stays at whatever it was when the row was
+written. It has no effect on availability either way.
+
 To take a day off, add a row to **BlockedDates**:
 
 | date | location | reason |

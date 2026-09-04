@@ -405,6 +405,9 @@ function eventsViaApi(calendarId, from, to) {
       var free = ev.transparency === 'transparent';
       var declined = isDeclined(ev);
       var props = (ev.extendedProperties && ev.extendedProperties.private) || {};
+      var isBooking = props[BOOKING_TAG] === '1';
+      var guestsOut = guestsDeclined(ev);
+      var released = isBooking && guestsOut && CONFIG.RELEASE_ON_GUEST_DECLINE;
 
       out.push({
         title: ev.summary || '(no title)',
@@ -413,9 +416,10 @@ function eventsViaApi(calendarId, from, to) {
         allDay: allDay,
         free: free,
         declined: declined,
-        booking: props[BOOKING_TAG] === '1',
+        guestsDeclined: guestsOut,
+        booking: isBooking,
         bookingLocation: props[BOOKING_LOCATION_TAG] || '',
-        counted: !free && !declined && (!allDay || CONFIG.BLOCK_ON_ALL_DAY_EVENTS)
+        counted: !free && !declined && !released && (!allDay || CONFIG.BLOCK_ON_ALL_DAY_EVENTS)
       });
     }
 
@@ -451,12 +455,32 @@ function eventsViaCalendarApp(calendarId, from, to) {
   return out;
 }
 
+/** Did you, the calendar owner, decline this invitation? */
 function isDeclined(ev) {
   var attendees = ev.attendees || [];
   for (var i = 0; i < attendees.length; i++) {
     if (attendees[i].self && attendees[i].responseStatus === 'declined') return true;
   }
   return false;
+}
+
+/**
+ * Did every invited guest say no? Organisers, resources and you are not
+ * guests, so an event with nobody else on it never counts as declined.
+ */
+function guestsDeclined(ev) {
+  var attendees = ev.attendees || [];
+  var guests = 0;
+  var noes = 0;
+
+  for (var i = 0; i < attendees.length; i++) {
+    var a = attendees[i];
+    if (a.self || a.organizer || a.resource) continue;
+    guests++;
+    if (a.responseStatus === 'declined') noes++;
+  }
+
+  return guests > 0 && noes === guests;
 }
 
 function getCalendar(calendarId) {
@@ -714,6 +738,93 @@ function isTrue(value) {
   return s === 'true' || s === 'yes' || s === 'y' || s === '1';
 }
 
+// --------------------------------------------------------- keeping in sync --
+
+/**
+ * Adds a Bookings menu to the spreadsheet. Runs automatically when the sheet
+ * is opened.
+ */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('Bookings')
+    .addItem('Refresh statuses now', 'syncBookingStatuses')
+    .addItem('Refresh automatically every 15 minutes', 'installSyncTrigger')
+    .addToUi();
+}
+
+/**
+ * Brings every row's status column into line with what the calendar says:
+ *
+ *   confirmed — the event is there and nobody has declined
+ *   declined  — the guest said no
+ *   cancelled — the event has been deleted from the calendar
+ *
+ * The sheet is a record, not the thing that decides availability, so this is
+ * about the log reading true. Safe to run as often as you like.
+ */
+function syncBookingStatuses() {
+  var sheet = SpreadsheetApp.getActive().getSheetByName(SHEETS.BOOKINGS);
+  if (!sheet) return 0;
+
+  var values = sheet.getDataRange().getValues();
+  if (values.length < 2) return 0;
+
+  var headers = values[0].map(function (h) { return String(h).trim().toLowerCase(); });
+  var idCol = headers.indexOf('event_id');
+  var statusCol = headers.indexOf('status');
+  if (idCol === -1 || statusCol === -1) return 0;
+
+  var changed = 0;
+  for (var r = 1; r < values.length; r++) {
+    var eventId = String(values[r][idCol] || '').trim();
+    if (!eventId) continue;
+
+    var was = String(values[r][statusCol] || '').trim().toLowerCase();
+    var now = eventStatus(eventId);
+    if (now && now !== was) {
+      sheet.getRange(r + 1, statusCol + 1).setValue(now);
+      changed++;
+    }
+  }
+
+  SpreadsheetApp.getActive().toast(
+    changed ? changed + ' row(s) updated.' : 'Everything was already up to date.',
+    'Booking statuses',
+    5
+  );
+  return changed;
+}
+
+function eventStatus(eventId) {
+  // CalendarApp ids carry an @google.com suffix the API does not want.
+  var id = String(eventId).split('@')[0];
+
+  if (typeof Calendar === 'undefined' || !Calendar.Events) return '';
+
+  try {
+    var ev = Calendar.Events.get(CONFIG.CALENDAR_ID, id);
+    if (!ev || ev.status === 'cancelled') return 'cancelled';
+    if (guestsDeclined(ev)) return 'declined';
+    return 'confirmed';
+  } catch (err) {
+    // A deleted event returns 404 rather than a cancelled record.
+    return 'cancelled';
+  }
+}
+
+/** Runs syncBookingStatuses() every 15 minutes. Replaces any existing one. */
+function installSyncTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'syncBookingStatuses') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+
+  ScriptApp.newTrigger('syncBookingStatuses').timeBased().everyMinutes(15).create();
+  SpreadsheetApp.getActive().toast('Statuses will refresh every 15 minutes.', 'Auto-refresh on', 5);
+}
+
 // ------------------------------------------------------------ diagnostics --
 
 /**
@@ -760,7 +871,9 @@ function diagnose() {
     var why = [];
     if (ev.allDay) why.push('all day');
     if (ev.free) why.push('shown as Free');
-    if (ev.declined) why.push('declined');
+    if (ev.declined) why.push('you declined');
+    if (ev.guestsDeclined) why.push('guest declined');
+    if (ev.booking) why.push('booked here');
 
     Logger.log(
       Utilities.formatDate(ev.start, tz(), 'h:mm a') + ' - ' +
