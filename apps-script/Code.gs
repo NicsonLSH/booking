@@ -622,6 +622,93 @@ function isTrue(value) {
   return s === 'true' || s === 'yes' || s === 'y' || s === '1';
 }
 
+// ------------------------------------------------------------ diagnostics --
+
+/**
+ * Prints why a given day offers the slots it does. Run it from the editor and
+ * read the execution log — it needs no deployment, so a save is enough.
+ *
+ * Change these two lines to inspect a different day.
+ */
+function diagnose() {
+  var DATE = '2026-09-29';
+  var LOCATION = 'others';
+
+  var day = parseDateKey(DATE);
+  var dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1, 0, 0, 0);
+
+  Logger.log('--- config ---');
+  Logger.log('CONFIG.TIMEZONE      : ' + CONFIG.TIMEZONE);
+  Logger.log('script timezone      : ' + Session.getScriptTimeZone());
+  Logger.log('GAP_AROUND_ALL_EVENTS: ' + CONFIG.GAP_AROUND_ALL_EVENTS);
+
+  Logger.log('--- settings tab, as read ---');
+  var raw = readTab(SHEETS.SETTINGS);
+  for (var i = 0; i < raw.length; i++) {
+    Logger.log(JSON.stringify(raw[i]));
+  }
+
+  var rule = getRules()[LOCATION];
+  if (!rule) {
+    Logger.log('!! no rule found for location "' + LOCATION + '"');
+    return;
+  }
+
+  Logger.log('--- parsed rule for ' + LOCATION + ' ---');
+  Logger.log('start times : ' + rule.startTimes.map(minutesToLabel).join(', '));
+  Logger.log('slot minutes: ' + rule.slotMinutes + '   gap: ' + rule.gapMinutes);
+  Logger.log('weekdays    : ' + rule.weekdays.join(',') + '   max/day: ' + rule.maxPerDay);
+  Logger.log('active      : ' + rule.active);
+
+  Logger.log('--- calendar events on ' + DATE + ' ---');
+  var events = getCalendar().getEvents(day, dayEnd);
+  if (!events.length) Logger.log('(none)');
+  for (var e = 0; e < events.length; e++) {
+    var ev = events[e];
+    Logger.log(
+      Utilities.formatDate(ev.getStartTime(), tz(), 'h:mm a') + ' - ' +
+      Utilities.formatDate(ev.getEndTime(), tz(), 'h:mm a') +
+      '  |  ' + ev.getTitle() +
+      (ev.isAllDayEvent() ? '  [all day]' : '') +
+      '  [counted: ' + (!CONFIG.BLOCK_ON_ALL_DAY_EVENTS && ev.isAllDayEvent() ? 'no' : 'yes') + ']'
+    );
+  }
+
+  Logger.log('--- bookings from the sheet ---');
+  var bookings = getBookings(day, dayEnd);
+  if (!bookings.length) Logger.log('(none)');
+  for (var b = 0; b < bookings.length; b++) {
+    Logger.log(Utilities.formatDate(bookings[b].start, tz(), 'h:mm a') + '  ' + bookings[b].location);
+  }
+
+  Logger.log('--- verdict per start time ---');
+  var ctx = buildContext(day, dayEnd);
+  var earliest = new Date(ctx.now.getTime() + CONFIG.MIN_NOTICE_HOURS * 3600 * 1000);
+  var latest = new Date(ctx.now.getTime() + CONFIG.HORIZON_DAYS * 86400 * 1000);
+
+  for (var s = 0; s < rule.startTimes.length; s++) {
+    var m = rule.startTimes[s];
+    var slotStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(m / 60), m % 60, 0);
+    var slotEnd = new Date(slotStart.getTime() + rule.slotMinutes * 60000);
+
+    var why = 'OPEN';
+    if (slotStart < earliest) why = 'too soon (inside the ' + CONFIG.MIN_NOTICE_HOURS + 'h notice)';
+    else if (slotStart > latest) why = 'beyond the ' + CONFIG.HORIZON_DAYS + '-day horizon';
+    else if (overlaps(slotStart, slotEnd, ctx.busy, CONFIG.GAP_AROUND_ALL_EVENTS ? rule.gapMinutes : 0)) why = 'blocked by a calendar event';
+    else if (overlaps(slotStart, slotEnd, ctx.bookings, rule.gapMinutes)) why = 'blocked by a booking or its gap';
+
+    Logger.log(minutesToLabel(m) + '  ->  ' + why);
+  }
+}
+
+function minutesToLabel(m) {
+  var h = Math.floor(m / 60);
+  var mm = m % 60;
+  var ampm = h < 12 ? 'AM' : 'PM';
+  var h12 = h % 12 === 0 ? 12 : h % 12;
+  return h12 + ':' + (mm < 10 ? '0' + mm : mm) + ' ' + ampm;
+}
+
 // ------------------------------------------------------------------ setup --
 
 /**
