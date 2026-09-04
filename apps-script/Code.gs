@@ -335,18 +335,100 @@ function countBookings(bookings, dayKey, locationId) {
 
 /** Existing calendar events in [from, to), reduced to plain busy intervals. */
 function getBusy(from, to) {
-  var events = getCalendar().getEvents(from, to);
+  var events = getEventsDetailed(from, to);
   var busy = [];
 
   for (var i = 0; i < events.length; i++) {
-    var ev = events[i];
-    if (!CONFIG.BLOCK_ON_ALL_DAY_EVENTS && ev.isAllDayEvent()) continue;
-    // An event you declined is not a real conflict.
-    if (ev.getMyStatus && ev.getMyStatus() === CalendarApp.GuestStatus.NO) continue;
-    busy.push({ start: ev.getStartTime(), end: ev.getEndTime() });
+    if (events[i].counted) busy.push({ start: events[i].start, end: events[i].end });
   }
 
   return busy;
+}
+
+/**
+ * Calendar events in [from, to) with the reasons they do or do not block a
+ * slot, so diagnose() can explain itself and getBusy() can stay simple.
+ *
+ * Reads through the advanced Calendar service where it is available, because
+ * CalendarApp does not expose an event's "Show as: Free / Busy" setting — an
+ * event marked Free is deliberately on your calendar without being a conflict,
+ * and should not remove a bookable hour.
+ */
+function getEventsDetailed(from, to) {
+  if (typeof Calendar !== 'undefined' && Calendar.Events) return eventsViaApi(from, to);
+  return eventsViaCalendarApp(from, to);
+}
+
+function eventsViaApi(from, to) {
+  var out = [];
+  var pageToken = null;
+
+  do {
+    var res = Calendar.Events.list(CONFIG.CALENDAR_ID, {
+      timeMin: from.toISOString(),
+      timeMax: to.toISOString(),
+      singleEvents: true,      // expand recurring events into real occurrences
+      showDeleted: false,
+      maxResults: 250,
+      pageToken: pageToken
+    });
+
+    var items = res.items || [];
+    for (var i = 0; i < items.length; i++) {
+      var ev = items[i];
+      if (ev.status === 'cancelled') continue;
+
+      var allDay = !!(ev.start && ev.start.date);
+      var free = ev.transparency === 'transparent';
+      var declined = isDeclined(ev);
+
+      out.push({
+        title: ev.summary || '(no title)',
+        start: new Date(allDay ? ev.start.date + 'T00:00:00' : ev.start.dateTime),
+        end: new Date(allDay ? ev.end.date + 'T00:00:00' : ev.end.dateTime),
+        allDay: allDay,
+        free: free,
+        declined: declined,
+        counted: !free && !declined && (!allDay || CONFIG.BLOCK_ON_ALL_DAY_EVENTS)
+      });
+    }
+
+    pageToken = res.nextPageToken;
+  } while (pageToken);
+
+  return out;
+}
+
+/** Fallback for before the advanced Calendar service is switched on. */
+function eventsViaCalendarApp(from, to) {
+  var events = getCalendar().getEvents(from, to);
+  var out = [];
+
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i];
+    var allDay = ev.isAllDayEvent();
+    var declined = ev.getMyStatus && ev.getMyStatus() === CalendarApp.GuestStatus.NO;
+
+    out.push({
+      title: ev.getTitle(),
+      start: ev.getStartTime(),
+      end: ev.getEndTime(),
+      allDay: allDay,
+      free: false,          // not visible through this API
+      declined: declined,
+      counted: !declined && (!allDay || CONFIG.BLOCK_ON_ALL_DAY_EVENTS)
+    });
+  }
+
+  return out;
+}
+
+function isDeclined(ev) {
+  var attendees = ev.attendees || [];
+  for (var i = 0; i < attendees.length; i++) {
+    if (attendees[i].self && attendees[i].responseStatus === 'declined') return true;
+  }
+  return false;
 }
 
 /**
@@ -661,16 +743,21 @@ function diagnose() {
   Logger.log('active      : ' + rule.active);
 
   Logger.log('--- calendar events on ' + DATE + ' ---');
-  var events = getCalendar().getEvents(day, dayEnd);
+  var events = getEventsDetailed(day, dayEnd);
   if (!events.length) Logger.log('(none)');
   for (var e = 0; e < events.length; e++) {
     var ev = events[e];
+    var why = [];
+    if (ev.allDay) why.push('all day');
+    if (ev.free) why.push('shown as Free');
+    if (ev.declined) why.push('declined');
+
     Logger.log(
-      Utilities.formatDate(ev.getStartTime(), tz(), 'h:mm a') + ' - ' +
-      Utilities.formatDate(ev.getEndTime(), tz(), 'h:mm a') +
-      '  |  ' + ev.getTitle() +
-      (ev.isAllDayEvent() ? '  [all day]' : '') +
-      '  [counted: ' + (!CONFIG.BLOCK_ON_ALL_DAY_EVENTS && ev.isAllDayEvent() ? 'no' : 'yes') + ']'
+      Utilities.formatDate(ev.start, tz(), 'h:mm a') + ' - ' +
+      Utilities.formatDate(ev.end, tz(), 'h:mm a') +
+      '  |  ' + ev.title +
+      (why.length ? '  [' + why.join(', ') + ']' : '') +
+      '  [blocks slots: ' + (ev.counted ? 'yes' : 'no') + ']'
     );
   }
 
