@@ -169,22 +169,19 @@ pasting the file back into the editor and redeploying (see below).
 
 ## Which calendars are consulted
 
-Bookings are written to `CALENDAR_ID` — the HR Calendar — and never anywhere
-else. Keeping them off the primary calendar means personal reminders and
-all-day markers there cannot quietly remove bookable hours.
+**The HR Calendar decides availability, on its own.** Bookings are written
+there, and it is the only calendar read when working out which hours are free.
 
-The catch is that conflict checking follows the same list. With
-`BUSY_CALENDAR_IDS` empty, a meeting on your primary calendar will *not* stop
-someone booking over it. Adding `'primary'` to that array closes the gap:
+Nothing on the primary calendar counts, in either direction. A personal
+reminder there cannot remove a bookable hour — which is the point — but neither
+will an internal meeting there stop a client booking over it. If an hour is
+free on the HR Calendar, it can be booked.
 
-```js
-BUSY_CALENDAR_IDS: ['primary'],
-```
+`BUSY_CALENDAR_IDS` exists to widen that check to other calendars and is left
+empty on purpose. Anything listed in it is read only; bookings still land on
+`CALENDAR_ID` alone.
 
-Those calendars are read only. An event on one blocks the hour it covers;
-nothing is ever written to them.
-
-Three kinds of event are ignored on every calendar: all-day events (unless
+Three kinds of event are ignored on the HR Calendar: all-day events (unless
 `BLOCK_ON_ALL_DAY_EVENTS` is on), invitations you have declined, and anything
 marked **Show as: Free**. That last one is the escape hatch for a reminder you
 want on the calendar without it costing you a bookable hour.

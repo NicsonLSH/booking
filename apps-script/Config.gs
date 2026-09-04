@@ -13,24 +13,22 @@ var CONFIG = {
   TIMEZONE: 'America/New_York',
 
   /**
-   * Where bookings are written, and the only calendar checked for conflicts.
+   * The HR Calendar — where bookings are written, and the only calendar
+   * consulted for conflicts.
    *
-   * This is the "HR Calendar", kept separate from the primary calendar so
-   * personal reminders and all-day markers do not eat bookable hours. The
-   * flip side is that meetings on the primary calendar no longer block
-   * bookings — see BUSY_CALENDAR_IDS below.
-   *
-   * 'primary' would mean the calendar of whoever deployed the script.
+   * Deliberately not the primary calendar: availability is decided by the HR
+   * Calendar alone, so personal reminders, all-day markers and internal
+   * meetings elsewhere neither remove nor protect bookable hours. If an hour
+   * is free on the HR Calendar, it can be booked.
    */
   CALENDAR_ID: 'c_597677ca4b68e6dafed3322f99185cbccf0ed15dc2a37538bf15443f7120632d@group.calendar.google.com',
 
   /**
-   * Extra calendars checked for conflicts but never written to. Nothing is
-   * booked over a busy hour on these, but no booking ever lands on them.
+   * Extra calendars to check for conflicts but never write to.
    *
-   * Add 'primary' here to keep your own meetings from being double-booked
-   * while bookings still go to the HR Calendar. Leave empty to check only
-   * CALENDAR_ID.
+   * Intentionally empty: only the HR Calendar decides availability. Adding
+   * 'primary' here would let meetings on the primary calendar block bookings
+   * too — that was considered and turned down.
    */
   BUSY_CALENDAR_IDS: [],
 
