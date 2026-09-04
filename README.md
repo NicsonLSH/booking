@@ -84,10 +84,10 @@ minute or two.
 Open the **Settings** tab in the Sheet and change the numbers. No redeploy, no
 commit — reload the booking page and the slots have changed.
 
-| location | label | start_times | slot_minutes | gap_minutes | weekdays | max_per_day | active |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| philippines | Philippines | 13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | | TRUE |
-| others | Others | 8,9,10,11,13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | 4 | TRUE |
+| location | label | start_times | slot_minutes | gap_minutes | weekdays | max_per_day | event_title | active |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| philippines | Philippines | 13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | | Billy - General Virtual Assistant Interview \| {name} | TRUE |
+| others | Others | 8,9,10,11,13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | 4 | Charly - General Virtual Assistant Interview \| {name} | TRUE |
 
 - **`start_times`** is the literal list of times someone can pick, on a 24-hour
   US Eastern clock. `13,14,15,16` offers 1PM, 2PM, 3PM and 4PM. Gaps in the list
@@ -99,6 +99,11 @@ commit — reload the booking page and the slots have changed.
 - **`max_per_day`** caps how many calls that location can take in a day. Leave it
   blank for no cap. It is counted per location, so Philippines and Others each
   keep their own tally.
+- **`event_title`** is what the calendar entry is called. `{name}` is replaced
+  with whatever the person typed as their full name, so
+  `Billy - General Virtual Assistant Interview | {name}` becomes
+  `Billy - General Virtual Assistant Interview | Hiyasmin Aquino`. Reword it any
+  time; no redeploy needed.
 - **`weekdays`** is a comma-separated list. Leave it blank for Mon–Fri.
 - **`active`** set to `FALSE` hides that location from the page entirely.
 - Adding a row adds a new location option. Nothing else needs to change.

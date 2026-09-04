@@ -38,7 +38,8 @@ var CONFIG = {
   // How far into the future the calendar opens up.
   HORIZON_DAYS: 60,
 
-  // {name} is replaced with the guest's full name.
+  // Fallback event title, used only if a location has no event_title set in
+  // the Settings tab. {name} is replaced with the guest's full name.
   EVENT_TITLE: 'Call — {name}',
 
   /**
@@ -77,6 +78,7 @@ var CONFIG = {
       gap_minutes: 60,
       weekdays: 'Mon,Tue,Wed,Thu,Fri',
       max_per_day: '',
+      event_title: 'Billy - General Virtual Assistant Interview | {name}',
       active: true
     },
     {
@@ -87,6 +89,7 @@ var CONFIG = {
       gap_minutes: 60,
       weekdays: 'Mon,Tue,Wed,Thu,Fri',
       max_per_day: 4,
+      event_title: 'Charly - General Virtual Assistant Interview | {name}',
       active: true
     }
   ]
@@ -100,7 +103,7 @@ var SHEETS = {
 
 var SETTINGS_HEADERS = [
   'location', 'label', 'start_times', 'slot_minutes',
-  'gap_minutes', 'weekdays', 'max_per_day', 'active'
+  'gap_minutes', 'weekdays', 'max_per_day', 'event_title', 'active'
 ];
 
 var BLOCKED_HEADERS = ['date', 'location', 'reason'];

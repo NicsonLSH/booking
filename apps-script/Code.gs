@@ -178,7 +178,7 @@ function handleBooking(body) {
     }
 
     var end = new Date(b.ts + rule.slotMinutes * 60000);
-    var created = createEvent(b, start, end);
+    var created = createEvent(b, rule, start, end);
 
     appendBookingRow(b, rule, start, created);
 
@@ -499,16 +499,13 @@ function getCalendar(calendarId) {
  * Falls back to CalendarApp if that service has not been enabled yet, so the
  * page still works before setup is finished — just without a Meet link.
  */
-function createEvent(b, start, end) {
-  var rules = getRules();
-  var locationLabel = (rules[b.location] && rules[b.location].label) || b.location;
-
-  var title = CONFIG.EVENT_TITLE.replace('{name}', b.name);
+function createEvent(b, rule, start, end) {
+  var title = rule.eventTitle.replace('{name}', b.name);
   var description = [
     'Name: ' + b.name,
     'Email: ' + b.email,
     'Discord: ' + b.discordId,
-    'Location: ' + locationLabel,
+    'Location: ' + rule.label,
     '',
     b.notes ? 'Notes:\n' + b.notes : 'Notes: none'
   ].join('\n');
@@ -578,6 +575,7 @@ function getRules() {
       gapMinutes: r.gap_minutes === '' || r.gap_minutes == null ? 0 : Number(r.gap_minutes) || 0,
       weekdays: parseWeekdays(r.weekdays),
       maxPerDay: Number(r.max_per_day) || 0,
+      eventTitle: String(r.event_title || '').trim() || CONFIG.EVENT_TITLE,
       active: isTrue(r.active)
     };
   }
@@ -958,10 +956,14 @@ function upgradeSettings() {
   var ss = SpreadsheetApp.getActive();
   assertConfigCurrent();
 
+  // Carry across whatever is already there. Only columns that did not exist
+  // before are filled from the defaults, so hand-edited hours survive.
+  var rows = mergeSettingsRows(readTab(SHEETS.SETTINGS));
+
   // Build the replacement under a temporary name and only drop the old tab
   // once it exists. Deleting first would leave no Settings tab at all if the
   // write failed halfway.
-  var fresh = writeSettingsTab(ss, SHEETS.SETTINGS + ' (new)');
+  var fresh = writeSettingsTab(ss, SHEETS.SETTINGS + ' (new)', rows);
   var old = ss.getSheetByName(SHEETS.SETTINGS);
   if (old) ss.deleteSheet(old);
   fresh.setName(SHEETS.SETTINGS);
@@ -987,7 +989,7 @@ function upgradeSettings() {
  * which says nothing useful. Fail early with something actionable instead.
  */
 function assertConfigCurrent() {
-  var required = ['start_times', 'gap_minutes', 'max_per_day'];
+  var required = ['start_times', 'gap_minutes', 'max_per_day', 'event_title'];
   var missing = [];
 
   for (var i = 0; i < required.length; i++) {
@@ -1002,20 +1004,57 @@ function assertConfigCurrent() {
   }
 }
 
-function writeSettingsTab(ss, name) {
-  var sheet = createTab(ss, name || SHEETS.SETTINGS, SETTINGS_HEADERS);
+/**
+ * Existing Settings rows, widened to the current columns. A value already in
+ * the sheet always wins; a column that did not exist before is filled from the
+ * defaults for that location. A blank cell stays blank, since blank is
+ * meaningful for max_per_day.
+ */
+function mergeSettingsRows(existing) {
+  if (!existing.length) return defaultSettingsRows();
 
-  var rows = CONFIG.DEFAULT_LOCATIONS.map(function (r) {
-    return [
-      r.location, r.label, r.start_times, r.slot_minutes,
-      r.gap_minutes, r.weekdays, r.max_per_day, r.active
-    ];
+  var defaults = {};
+  for (var d = 0; d < CONFIG.DEFAULT_LOCATIONS.length; d++) {
+    defaults[CONFIG.DEFAULT_LOCATIONS[d].location] = CONFIG.DEFAULT_LOCATIONS[d];
+  }
+
+  var rows = [];
+  for (var i = 0; i < existing.length; i++) {
+    var was = existing[i];
+    var fallback = defaults[String(was.location || '').trim()] || {};
+
+    var row = [];
+    for (var c = 0; c < SETTINGS_HEADERS.length; c++) {
+      var key = SETTINGS_HEADERS[c];
+      // undefined means the column is new; '' means someone cleared the cell.
+      row.push(was[key] !== undefined ? was[key] : (fallback[key] !== undefined ? fallback[key] : ''));
+    }
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function defaultSettingsRows() {
+  return CONFIG.DEFAULT_LOCATIONS.map(function (r) {
+    return SETTINGS_HEADERS.map(function (h) {
+      return r[h] !== undefined ? r[h] : '';
+    });
   });
+}
 
-  // start_times and weekdays are comma lists — keep Sheets from reformatting
-  // them into something else.
-  sheet.getRange(2, 3, rows.length, 1).setNumberFormat('@');
-  sheet.getRange(2, 6, rows.length, 1).setNumberFormat('@');
+function writeSettingsTab(ss, name, rows) {
+  var sheet = createTab(ss, name || SHEETS.SETTINGS, SETTINGS_HEADERS);
+  rows = rows || defaultSettingsRows();
+
+  // start_times, weekdays and event_title are free text — keep Sheets from
+  // reformatting them into numbers or dates.
+  var textColumns = ['start_times', 'weekdays', 'event_title'];
+  for (var t = 0; t < textColumns.length; t++) {
+    var col = SETTINGS_HEADERS.indexOf(textColumns[t]) + 1;
+    if (col > 0) sheet.getRange(2, col, rows.length, 1).setNumberFormat('@');
+  }
+
   sheet.getRange(2, 1, rows.length, SETTINGS_HEADERS.length).setValues(rows);
   sheet.autoResizeColumns(1, SETTINGS_HEADERS.length);
 
