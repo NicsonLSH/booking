@@ -31,7 +31,7 @@
   ['steps', 'locations', 'days', 'slots', 'month-label', 'prev-month', 'next-month',
     'date-hint', 'time-hint', 'tz-note', 'details-summary', 'booking-form', 'submit',
     'loading', 'loading-text', 'done-when', 'done-receipt', 'book-another',
-    'brand', 'title', 'subtitle', 'foot-note', 'e-form'
+    'title', 'subtitle', 'foot-note', 'e-form'
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ------------------------------------------------------------- transport --
@@ -445,7 +445,6 @@
   function pad(n) { return n < 10 ? '0' + n : String(n); }
 
   function init() {
-    if (CFG.BRAND) el.brand.textContent = CFG.BRAND;
     if (CFG.TITLE) { el.title.textContent = CFG.TITLE; document.title = CFG.TITLE; }
     if (CFG.SUBTITLE) el.subtitle.textContent = CFG.SUBTITLE;
     el['foot-note'].textContent = CFG.TIMEZONE_NOTE || '';

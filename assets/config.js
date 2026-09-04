@@ -8,10 +8,9 @@
 window.BOOKING_CONFIG = {
   API_URL: 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE',
 
-  // Page copy.
-  BRAND: 'LSH',
+  // Page copy. The logo is inline in index.html so it can follow the theme.
   TITLE: 'Book a call',
-  SUBTITLE: '30 minutes to talk through what you need.',
+  SUBTITLE: 'Talk to a legal virtual assistant about what you need.',
   DURATION_LABEL: '1 hour',
 
   // Shown under the time slots so nobody misreads the timezone.

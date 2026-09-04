@@ -104,6 +104,28 @@ To take a day off, add a row to **BlockedDates**:
 
 Use `all` to block a date for every location, or a specific location id.
 
+## Branding
+
+Colours are taken from legalsupporthelp.com and live as CSS custom properties at
+the top of `assets/styles.css`:
+
+| Token | Light | Dark | Role |
+| --- | --- | --- | --- |
+| `--accent` | `#D7782E` | `#E28A45` | Brand orange — buttons, borders, selected states |
+| `--ink` | `#2A2E40` | `#F2F3F6` | Brand navy — headings and body text |
+| `--bg` | `#F5F5F5` | `#1B1E2B` | Page ground |
+
+The logo is inlined in `index.html` rather than loaded as an image, so its
+wordmark paths can use `fill="currentColor"` and follow `--logo-ink` — navy on
+light, white on dark. The orange mark inside keeps its brand colour in both.
+`assets/logo.svg` is the untouched original, used as the favicon.
+
+One thing to know: white text on `#D7782E` measures **3.2:1**, below the WCAG AA
+threshold of 4.5:1 for normal text. That is how the brand orange behaves on the
+main site too, so it is kept here for consistency, and the orange is used for
+fills and borders rather than for text. If you would rather be strictly AA,
+darken `--accent` to about `#A0541A`.
+
 ## Settings that live in code
 
 These change rarely, so they are in `apps-script/Config.gs`. Editing them means
