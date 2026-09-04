@@ -6,7 +6,7 @@
  * version of the existing one, the URL changes and must be re-pasted here.
  */
 window.BOOKING_CONFIG = {
-  API_URL: 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE',
+  API_URL: 'https://script.google.com/macros/s/AKfycbxG0C7yW0wypAmnJ_0Rw3SpKEcX-eFSLAk0LqwOWtWN8gSP2VFwC7mN6hXhWTTtrMG2TA/exec',
 
   // Page copy. The logo is inline in index.html so it can follow the theme.
   TITLE: 'Book a call',
