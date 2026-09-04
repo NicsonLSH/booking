@@ -94,7 +94,7 @@ var CONFIG = {
       weekdays: 'Mon,Tue,Wed,Thu,Fri',
       max_per_day: '',
       event_title: 'Billy - General Virtual Assistant Interview | {name}',
-      interviewer_email: '',
+      interviewer_email: 'recruitment@legalsupporthelp.com',
       block_keywords: 'Billy,Philippines',
       active: true
     },
@@ -107,7 +107,7 @@ var CONFIG = {
       weekdays: 'Mon,Tue,Wed,Thu,Fri',
       max_per_day: 4,
       event_title: 'Charly - General Virtual Assistant Interview | {name}',
-      interviewer_email: '',
+      interviewer_email: 'sourcing@legalsupporthelp.com',
       block_keywords: 'Charly,Others',
       active: true
     }
