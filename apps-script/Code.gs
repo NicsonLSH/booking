@@ -251,9 +251,27 @@ function isDiscordId(value) {
  * the month grid asks about thirty days at once.
  */
 function buildContext(from, to) {
+  var events = getEventsDetailed(from, to);
+  var busy = [];
+  var bookings = [];
+
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i];
+    if (!ev.counted) continue;
+
+    busy.push({ start: ev.start, end: ev.end });
+
+    // Calls booked through this page are tagged when they are created, so they
+    // can be told apart from anything else on the calendar. Only these earn a
+    // gap either side.
+    if (ev.booking) {
+      bookings.push({ start: ev.start, end: ev.end, location: ev.bookingLocation });
+    }
+  }
+
   return {
-    busy: getBusy(from, to),
-    bookings: getBookings(from, to),
+    busy: busy,
+    bookings: bookings,
     blocked: getBlockedDates(),
     now: new Date()
   };
@@ -333,21 +351,13 @@ function countBookings(bookings, dayKey, locationId) {
   return n;
 }
 
-/** Existing calendar events in [from, to), reduced to plain busy intervals. */
-function getBusy(from, to) {
-  var events = getEventsDetailed(from, to);
-  var busy = [];
-
-  for (var i = 0; i < events.length; i++) {
-    if (events[i].counted) busy.push({ start: events[i].start, end: events[i].end });
-  }
-
-  return busy;
-}
+/** Marks the events this page creates, so they can be recognised later. */
+var BOOKING_TAG = 'lshBooking';
+var BOOKING_LOCATION_TAG = 'lshLocation';
 
 /**
  * Calendar events in [from, to) with the reasons they do or do not block a
- * slot, so diagnose() can explain itself and getBusy() can stay simple.
+ * slot, so diagnose() can explain itself and buildContext() can stay simple.
  *
  * Reads through the advanced Calendar service where it is available, because
  * CalendarApp does not expose an event's "Show as: Free / Busy" setting — an
@@ -394,6 +404,7 @@ function eventsViaApi(calendarId, from, to) {
       var allDay = !!(ev.start && ev.start.date);
       var free = ev.transparency === 'transparent';
       var declined = isDeclined(ev);
+      var props = (ev.extendedProperties && ev.extendedProperties.private) || {};
 
       out.push({
         title: ev.summary || '(no title)',
@@ -402,6 +413,8 @@ function eventsViaApi(calendarId, from, to) {
         allDay: allDay,
         free: free,
         declined: declined,
+        booking: props[BOOKING_TAG] === '1',
+        bookingLocation: props[BOOKING_LOCATION_TAG] || '',
         counted: !free && !declined && (!allDay || CONFIG.BLOCK_ON_ALL_DAY_EVENTS)
       });
     }
@@ -429,6 +442,8 @@ function eventsViaCalendarApp(calendarId, from, to) {
       allDay: allDay,
       free: false,          // not visible through this API
       declined: declined,
+      booking: false,       // nor are the tags, so no gap is applied here
+      bookingLocation: '',
       counted: !declined && (!allDay || CONFIG.BLOCK_ON_ALL_DAY_EVENTS)
     });
   }
@@ -442,35 +457,6 @@ function isDeclined(ev) {
     if (attendees[i].self && attendees[i].responseStatus === 'declined') return true;
   }
   return false;
-}
-
-/**
- * Confirmed bookings made through this page, from the Bookings tab.
- *
- * The sheet rather than the calendar is the source of truth here, because the
- * gap and the daily cap should follow calls booked through this page, not
- * every meeting you happen to have. Set a row's status to anything other than
- * "confirmed" (say "cancelled") to release its slot and its gap.
- */
-function getBookings(from, to) {
-  var rows = readTab(SHEETS.BOOKINGS);
-  var out = [];
-
-  for (var i = 0; i < rows.length; i++) {
-    var r = rows[i];
-    if (String(r.status || '').trim().toLowerCase() !== 'confirmed') continue;
-
-    var ts = Number(r.start_ts);
-    if (!ts || !isFinite(ts)) continue;
-
-    var start = new Date(ts);
-    var end = new Date(ts + (Number(r.duration_min) || 60) * 60000);
-    if (end <= from || start >= to) continue;
-
-    out.push({ start: start, end: end, location: String(r.location || '').trim() });
-  }
-
-  return out;
 }
 
 function getCalendar(calendarId) {
@@ -515,6 +501,16 @@ function createEvent(b, start, end) {
           requestId: Utilities.getUuid(),
           conferenceSolutionKey: { type: 'hangoutsMeet' }
         }
+      },
+      // Tagged so availability can recognise its own bookings and give them a
+      // gap either side. Invisible to anyone reading the calendar.
+      extendedProperties: {
+        'private': (function () {
+          var p = {};
+          p[BOOKING_TAG] = '1';
+          p[BOOKING_LOCATION_TAG] = b.location;
+          return p;
+        })()
       }
     };
 
@@ -776,15 +772,18 @@ function diagnose() {
     );
   }
 
-  Logger.log('--- bookings from the sheet ---');
-  var bookings = getBookings(day, dayEnd);
-  if (!bookings.length) Logger.log('(none)');
-  for (var b = 0; b < bookings.length; b++) {
-    Logger.log(Utilities.formatDate(bookings[b].start, tz(), 'h:mm a') + '  ' + bookings[b].location);
+  var ctx = buildContext(day, dayEnd);
+
+  Logger.log('--- calls booked through the page (these get a gap) ---');
+  if (!ctx.bookings.length) Logger.log('(none)');
+  for (var b = 0; b < ctx.bookings.length; b++) {
+    Logger.log(
+      Utilities.formatDate(ctx.bookings[b].start, tz(), 'h:mm a') +
+      '  ' + (ctx.bookings[b].location || '(location not tagged)')
+    );
   }
 
   Logger.log('--- verdict per start time ---');
-  var ctx = buildContext(day, dayEnd);
   var earliest = new Date(ctx.now.getTime() + CONFIG.MIN_NOTICE_HOURS * 3600 * 1000);
   var latest = new Date(ctx.now.getTime() + CONFIG.HORIZON_DAYS * 86400 * 1000);
 

@@ -110,8 +110,10 @@ unrelated meetings on your calendar block the slot they actually cover and
 nothing more. Set `GAP_AROUND_ALL_EVENTS` to `true` in `Config.gs` if you would
 rather every meeting on the calendar reserve room around itself.
 
-To release a slot and its gap without deleting the calendar event, change that
-row's **status** in the Bookings tab from `confirmed` to anything else.
+**To cancel a booking, delete its event from the HR Calendar.** The slot and its
+gap reopen straight away. The calendar is what availability reads; the Bookings
+tab is a record of what was booked, and editing it changes nothing about which
+hours are offered.
 
 To take a day off, add a row to **BlockedDates**:
 
