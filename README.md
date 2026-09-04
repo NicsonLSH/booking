@@ -113,9 +113,41 @@ are different interviewers, so both can be booked for 1PM on the same day. A
 booking closes slots, and spends its gap, only within its own location, and the
 daily cap is counted per location too.
 
-Anything on the calendar that was *not* booked through this page — a holiday, a
-company meeting — still blocks that hour for every location. To go back to one
-shared diary, set `LOCATIONS_BOOK_INDEPENDENTLY` to `false` in `Config.gs`.
+To go back to one shared diary, set `LOCATIONS_BOOK_INDEPENDENTLY` to `false`
+in `Config.gs`.
+
+### Blocking time by hand
+
+Add an event to the HR Calendar and that hour stops being bookable. Who it
+applies to comes from the title:
+
+| Event title | Closes the hour for |
+| --- | --- |
+| `Billy - Leave` | Philippines only |
+| `Charly OOO` | Others only |
+| `Public holiday` | both |
+
+The words that do this live in the **block_keywords** column, one comma-list per
+location — `Billy,Philippines` and `Charly,Others` by default. A title matching
+nothing applies to everyone, which is the right default for a genuine shared
+blocker. Add a nickname to that column and it starts working immediately.
+
+For whole days off, the **BlockedDates** tab is tidier than an event.
+
+### Putting the interviewer on the invitation
+
+Fill in **interviewer_email** for a location and that person is added as a guest
+on every booking there, so it lands on their own calendar and they get the usual
+Google invitation. Leave it blank and only the candidate is invited.
+
+Google will not let a script send an invitation *as* someone else — the
+organiser is always whoever owns the calendar the event sits on, which here is
+the HR Calendar. Adding the interviewer as a guest is how they get attached to
+it. To have Billy appear as the organiser, his interviews would have to be
+created on a calendar he owns.
+
+Only the candidate's reply releases a slot. If the interviewer declines, or has
+not responded, the booking stands.
 
 Unrelated meetings block the slot they actually cover and nothing more. Set
 `GAP_AROUND_ALL_EVENTS` to `true` if you would rather every meeting on the

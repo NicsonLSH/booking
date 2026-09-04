@@ -252,6 +252,7 @@ function isDiscordId(value) {
  */
 function buildContext(from, to) {
   var events = getEventsDetailed(from, to);
+  var rules = getRules();
   var busy = [];
   var bookings = [];
 
@@ -268,7 +269,7 @@ function buildContext(from, to) {
     if (ev.booking && ev.bookingLocation) {
       bookings.push({ start: ev.start, end: ev.end, location: ev.bookingLocation });
     } else {
-      busy.push({ start: ev.start, end: ev.end });
+      busy.push({ start: ev.start, end: ev.end, targets: blockTargets(ev.title, rules) });
     }
   }
 
@@ -304,6 +305,9 @@ function slotsForDay(rule, day, ctx) {
     ? bookingsFor(ctx.bookings, rule.location)
     : ctx.bookings;
 
+  // Hand-added events apply to every location unless their title names one.
+  var blockers = busyFor(ctx.busy, rule.location);
+
   // Daily maximum for this location. Counted per location, so Philippines and
   // Others each keep their own tally.
   if (rule.maxPerDay > 0 && countBookings(ctx.bookings, key, rule.location) >= rule.maxPerDay) {
@@ -319,7 +323,7 @@ function slotsForDay(rule, day, ctx) {
     if (slotStart > latest) continue;
 
     // Anything already on the calendar blocks the slot it actually covers.
-    if (overlaps(slotStart, slotEnd, ctx.busy, CONFIG.GAP_AROUND_ALL_EVENTS ? rule.gapMinutes : 0)) continue;
+    if (overlaps(slotStart, slotEnd, blockers, CONFIG.GAP_AROUND_ALL_EVENTS ? rule.gapMinutes : 0)) continue;
 
     // Calls booked through this page also close the hour either side, so this
     // interviewer never runs two calls back to back.
@@ -353,6 +357,56 @@ function overlaps(start, end, intervals, padMinutes) {
   return false;
 }
 
+/**
+ * Which locations a hand-added calendar event applies to, from its title.
+ *
+ * An event called "Billy - leave" closes the hour for Philippines only, because
+ * "Billy" is one of that location's block_keywords. An event called "Public
+ * holiday" matches nothing and so closes the hour for everyone — which is the
+ * right default for a genuinely shared blocker.
+ *
+ * Returns [] to mean "applies to every location".
+ */
+function blockTargets(title, rules) {
+  var text = String(title || '').toLowerCase();
+  var hits = [];
+
+  for (var id in rules) {
+    var words = rules[id].blockKeywords;
+    for (var w = 0; w < words.length; w++) {
+      if (text.indexOf(words[w]) !== -1) {
+        hits.push(id);
+        break;
+      }
+    }
+  }
+
+  return hits;
+}
+
+/** Busy intervals that apply to this location. */
+function busyFor(busy, locationId) {
+  var out = [];
+  for (var i = 0; i < busy.length; i++) {
+    var targets = busy[i].targets || [];
+    if (!targets.length || targets.indexOf(locationId) !== -1) out.push(busy[i]);
+  }
+  return out;
+}
+
+function parseKeywords(value) {
+  var text = String(value == null ? '' : value).trim();
+  if (!text) return [];
+
+  var out = [];
+  var parts = text.split(',');
+  for (var i = 0; i < parts.length; i++) {
+    var word = parts[i].trim().toLowerCase();
+    if (word) out.push(word);
+  }
+  return out;
+}
+
 function bookingsFor(bookings, locationId) {
   var out = [];
   for (var i = 0; i < bookings.length; i++) {
@@ -372,6 +426,7 @@ function countBookings(bookings, dayKey, locationId) {
 /** Marks the events this page creates, so they can be recognised later. */
 var BOOKING_TAG = 'lshBooking';
 var BOOKING_LOCATION_TAG = 'lshLocation';
+var BOOKING_GUEST_TAG = 'lshGuest';
 
 /**
  * Calendar events in [from, to) with the reasons they do or do not block a
@@ -483,22 +538,51 @@ function isDeclined(ev) {
 }
 
 /**
- * Did every invited guest say no? Organisers, resources and you are not
- * guests, so an event with nobody else on it never counts as declined.
+ * Has the person who booked said no?
+ *
+ * Their address is recorded on the event when it is created, so the answer
+ * does not depend on the interviewer, who is also a guest and may not have
+ * responded. Older events without that tag fall back to "every guest
+ * declined".
  */
 function guestsDeclined(ev) {
   var attendees = ev.attendees || [];
+  var props = (ev.extendedProperties && ev.extendedProperties.private) || {};
+  var bookedBy = String(props[BOOKING_GUEST_TAG] || '').toLowerCase();
+
+  if (bookedBy) {
+    for (var i = 0; i < attendees.length; i++) {
+      if (String(attendees[i].email || '').toLowerCase() === bookedBy) {
+        return attendees[i].responseStatus === 'declined';
+      }
+    }
+    return false;
+  }
+
   var guests = 0;
   var noes = 0;
-
-  for (var i = 0; i < attendees.length; i++) {
-    var a = attendees[i];
+  for (var j = 0; j < attendees.length; j++) {
+    var a = attendees[j];
     if (a.self || a.organizer || a.resource) continue;
     guests++;
     if (a.responseStatus === 'declined') noes++;
   }
 
   return guests > 0 && noes === guests;
+}
+
+/**
+ * The candidate, plus the interviewer for that location if one is configured.
+ * Both get the standard Google invitation.
+ */
+function buildAttendees(b, rule) {
+  var list = [{ email: b.email, displayName: b.name }];
+
+  if (rule.interviewerEmail && rule.interviewerEmail.toLowerCase() !== b.email.toLowerCase()) {
+    list.push({ email: rule.interviewerEmail });
+  }
+
+  return list;
 }
 
 function getCalendar(calendarId) {
@@ -534,7 +618,7 @@ function createEvent(b, rule, start, end) {
       description: description,
       start: { dateTime: isoWithOffset(start), timeZone: tz() },
       end: { dateTime: isoWithOffset(end), timeZone: tz() },
-      attendees: [{ email: b.email, displayName: b.name }],
+      attendees: buildAttendees(b, rule),
       conferenceData: {
         createRequest: {
           requestId: Utilities.getUuid(),
@@ -548,6 +632,7 @@ function createEvent(b, rule, start, end) {
           var p = {};
           p[BOOKING_TAG] = '1';
           p[BOOKING_LOCATION_TAG] = b.location;
+          p[BOOKING_GUEST_TAG] = b.email;
           return p;
         })()
       }
@@ -563,7 +648,7 @@ function createEvent(b, rule, start, end) {
 
   var ev = getCalendar().createEvent(title, start, end, {
     description: description,
-    guests: b.email,
+    guests: rule.interviewerEmail ? b.email + ',' + rule.interviewerEmail : b.email,
     sendInvites: true
   });
 
@@ -594,6 +679,8 @@ function getRules() {
       weekdays: parseWeekdays(r.weekdays),
       maxPerDay: Number(r.max_per_day) || 0,
       eventTitle: String(r.event_title || '').trim() || CONFIG.EVENT_TITLE,
+      interviewerEmail: String(r.interviewer_email || '').trim(),
+      blockKeywords: parseKeywords(r.block_keywords),
       active: isTrue(r.active)
     };
   }
@@ -1007,7 +1094,7 @@ function upgradeSettings() {
  * which says nothing useful. Fail early with something actionable instead.
  */
 function assertConfigCurrent() {
-  var required = ['start_times', 'gap_minutes', 'max_per_day', 'event_title'];
+  var required = ['start_times', 'gap_minutes', 'max_per_day', 'event_title', 'interviewer_email', 'block_keywords'];
   var missing = [];
 
   for (var i = 0; i < required.length; i++) {

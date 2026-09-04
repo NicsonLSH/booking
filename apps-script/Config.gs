@@ -94,6 +94,8 @@ var CONFIG = {
       weekdays: 'Mon,Tue,Wed,Thu,Fri',
       max_per_day: '',
       event_title: 'Billy - General Virtual Assistant Interview | {name}',
+      interviewer_email: '',
+      block_keywords: 'Billy,Philippines',
       active: true
     },
     {
@@ -105,6 +107,8 @@ var CONFIG = {
       weekdays: 'Mon,Tue,Wed,Thu,Fri',
       max_per_day: 4,
       event_title: 'Charly - General Virtual Assistant Interview | {name}',
+      interviewer_email: '',
+      block_keywords: 'Charly,Others',
       active: true
     }
   ]
@@ -118,7 +122,8 @@ var SHEETS = {
 
 var SETTINGS_HEADERS = [
   'location', 'label', 'start_times', 'slot_minutes',
-  'gap_minutes', 'weekdays', 'max_per_day', 'event_title', 'active'
+  'gap_minutes', 'weekdays', 'max_per_day', 'event_title',
+  'interviewer_email', 'block_keywords', 'active'
 ];
 
 var BLOCKED_HEADERS = ['date', 'location', 'reason'];
