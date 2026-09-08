@@ -14,5 +14,17 @@ window.BOOKING_CONFIG = {
   DURATION_LABEL: '1 hour',
 
   // Shown under the time slots so nobody misreads the timezone.
-  TIMEZONE_NOTE: 'All times are shown in US Eastern time (EST/EDT).'
+  TIMEZONE_NOTE: 'All times are shown in US Eastern time (EST/EDT).',
+
+  /**
+   * Renames a location on the page only, keyed by its id in the Settings tab.
+   * Anything not listed here keeps the label the Settings tab gives it.
+   *
+   * Note this changes the button and the confirmation screen, not the calendar
+   * event — its description still carries the Settings tab's label. Editing
+   * cell B3 in the Settings tab instead would change both.
+   */
+  LABELS: {
+    others: 'Latin America'
+  }
 };

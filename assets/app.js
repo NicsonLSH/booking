@@ -59,6 +59,12 @@
     }).then(readJson);
   }
 
+  /** The name to show for a location, honouring any CFG.LABELS override. */
+  function labelFor(loc) {
+    var overrides = CFG.LABELS || {};
+    return overrides[loc.id] || loc.label;
+  }
+
   function readJson(res) {
     return res.text().then(function (text) {
       try {
@@ -141,7 +147,7 @@
           var btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'location';
-          btn.appendChild(document.createTextNode(loc.label));
+          btn.appendChild(document.createTextNode(labelFor(loc)));
           btn.addEventListener('click', function () { pickLocation(loc); });
           el.locations.appendChild(btn);
         });
@@ -154,14 +160,14 @@
 
   function pickLocation(loc) {
     state.location = loc.id;
-    state.locationLabel = loc.label;
+    state.locationLabel = labelFor(loc);
     state.date = null;
     state.slot = null;
 
     var now = new Date();
     state.view = { year: now.getFullYear(), month: now.getMonth() };
 
-    el['date-hint'].textContent = 'Showing open days for ' + loc.label + '.';
+    el['date-hint'].textContent = 'Showing open days for ' + labelFor(loc) + '.';
     show('date');
     loadMonth();
   }
