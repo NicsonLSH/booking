@@ -850,7 +850,7 @@ function isTrue(value) {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Bookings')
-    .addItem('Refresh statuses now', 'syncBookingStatuses')
+    .addItem('Refresh statuses and recordings', 'syncBookingStatuses')
     .addItem('Refresh automatically every 15 minutes', 'installSyncTrigger')
     .addToUi();
 }
@@ -875,6 +875,8 @@ function syncBookingStatuses() {
   var headers = values[0].map(function (h) { return String(h).trim().toLowerCase(); });
   var idCol = headers.indexOf('event_id');
   var statusCol = headers.indexOf('status');
+  var recCol = headers.indexOf('recording_link');
+  var notesCol = headers.indexOf('notes_link');
   if (idCol === -1 || statusCol === -1) return 0;
 
   var changed = 0;
@@ -882,37 +884,80 @@ function syncBookingStatuses() {
     var eventId = String(values[r][idCol] || '').trim();
     if (!eventId) continue;
 
-    var was = String(values[r][statusCol] || '').trim().toLowerCase();
-    var now = eventStatus(eventId);
-    if (now && now !== was) {
-      sheet.getRange(r + 1, statusCol + 1).setValue(now);
+    var snap = eventSnapshot(eventId);
+
+    if (snap.status && snap.status !== String(values[r][statusCol] || '').trim().toLowerCase()) {
+      sheet.getRange(r + 1, statusCol + 1).setValue(snap.status);
+      changed++;
+    }
+
+    // Links are only ever added, never cleared — a recording that has been
+    // moved or tidied away in Drive should not wipe the row that referenced it.
+    if (recCol !== -1 && snap.recording && !String(values[r][recCol] || '').trim()) {
+      sheet.getRange(r + 1, recCol + 1).setValue(snap.recording);
+      changed++;
+    }
+
+    if (notesCol !== -1 && snap.notes && !String(values[r][notesCol] || '').trim()) {
+      sheet.getRange(r + 1, notesCol + 1).setValue(snap.notes);
       changed++;
     }
   }
 
   SpreadsheetApp.getActive().toast(
-    changed ? changed + ' row(s) updated.' : 'Everything was already up to date.',
-    'Booking statuses',
+    changed ? changed + ' cell(s) updated.' : 'Everything was already up to date.',
+    'Bookings refreshed',
     5
   );
   return changed;
 }
 
-function eventStatus(eventId) {
+/**
+ * What the calendar currently says about one booking: its status, and links to
+ * whatever Meet left attached to the event afterwards.
+ */
+function eventSnapshot(eventId) {
   // CalendarApp ids carry an @google.com suffix the API does not want.
   var id = String(eventId).split('@')[0];
+  var blank = { status: '', recording: '', notes: '' };
 
-  if (typeof Calendar === 'undefined' || !Calendar.Events) return '';
+  if (typeof Calendar === 'undefined' || !Calendar.Events) return blank;
 
   try {
     var ev = Calendar.Events.get(CONFIG.CALENDAR_ID, id);
-    if (!ev || ev.status === 'cancelled') return 'cancelled';
-    if (guestsDeclined(ev)) return 'declined';
-    return 'confirmed';
+    if (!ev || ev.status === 'cancelled') return { status: 'cancelled', recording: '', notes: '' };
+
+    var files = attachmentLinks(ev);
+    return {
+      status: guestsDeclined(ev) ? 'declined' : 'confirmed',
+      recording: files.recording,
+      notes: files.notes
+    };
   } catch (err) {
     // A deleted event returns 404 rather than a cancelled record.
-    return 'cancelled';
+    return { status: 'cancelled', recording: '', notes: '' };
   }
+}
+
+/**
+ * Meet drops the recording onto the calendar event once the call ends, usually
+ * alongside a transcript and a Gemini notes doc. Sorts them by type so the
+ * video does not get mixed up with the paperwork.
+ */
+function attachmentLinks(ev) {
+  var files = ev.attachments || [];
+  var out = { recording: '', notes: '' };
+
+  for (var i = 0; i < files.length; i++) {
+    var type = String(files[i].mimeType || '');
+    var url = files[i].fileUrl || '';
+    if (!url) continue;
+
+    if (!out.recording && type.indexOf('video/') === 0) out.recording = url;
+    else if (!out.notes && type.indexOf('application/vnd.google-apps.document') === 0) out.notes = url;
+  }
+
+  return out;
 }
 
 /** Runs syncBookingStatuses() every 15 minutes. Replaces any existing one. */

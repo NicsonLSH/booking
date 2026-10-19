@@ -133,5 +133,5 @@ var BLOCKED_HEADERS = ['date', 'location', 'reason'];
 var BOOKING_HEADERS = [
   'timestamp', 'name', 'email', 'discord_id', 'location',
   'date_est', 'time_est', 'start_ts', 'duration_min', 'notes',
-  'event_id', 'meet_link', 'status'
+  'event_id', 'meet_link', 'status', 'recording_link', 'notes_link'
 ];

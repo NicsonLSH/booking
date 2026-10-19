@@ -167,14 +167,25 @@ calls reserved instead.
 
 The Bookings tab has a **Bookings** menu at the top of the spreadsheet:
 
-- **Refresh statuses now** — reads the calendar and updates every row's status
-  to `confirmed`, `declined` (the guest said no) or `cancelled` (the event was
-  deleted).
+- **Refresh statuses and recordings** — reads the calendar and updates every
+  row's status to `confirmed`, `declined` (the guest said no) or `cancelled`
+  (the event was deleted), and fills in `recording_link` and `notes_link` from
+  whatever Meet attached to the event after the call.
 - **Refresh automatically every 15 minutes** — installs a trigger that does the
   same on a schedule. Run once; it replaces any earlier trigger.
 
 Without this the status column stays at whatever it was when the row was
 written. It has no effect on availability either way.
+
+Meet attaches the recording to the calendar event a few minutes after a call
+ends, so the links appear on the next refresh rather than immediately. Links are
+only ever added, never cleared — tidying a recording away in Drive will not wipe
+the row that pointed at it.
+
+Access to the files themselves is a Drive matter, not something this script
+controls. Recordings land in the Drive of whoever owns the HR Calendar, so share
+that **Meet Recordings** folder with the interviewers once and every future
+recording is covered.
 
 To take a day off, add a row to **BlockedDates**:
 
