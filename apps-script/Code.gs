@@ -876,7 +876,6 @@ function syncBookingStatuses() {
   var idCol = headers.indexOf('event_id');
   var statusCol = headers.indexOf('status');
   var recCol = headers.indexOf('recording_link');
-  var notesCol = headers.indexOf('notes_link');
   if (idCol === -1 || statusCol === -1) return 0;
 
   var changed = 0;
@@ -897,11 +896,6 @@ function syncBookingStatuses() {
       sheet.getRange(r + 1, recCol + 1).setValue(snap.recording);
       changed++;
     }
-
-    if (notesCol !== -1 && snap.notes && !String(values[r][notesCol] || '').trim()) {
-      sheet.getRange(r + 1, notesCol + 1).setValue(snap.notes);
-      changed++;
-    }
   }
 
   SpreadsheetApp.getActive().toast(
@@ -919,45 +913,40 @@ function syncBookingStatuses() {
 function eventSnapshot(eventId) {
   // CalendarApp ids carry an @google.com suffix the API does not want.
   var id = String(eventId).split('@')[0];
-  var blank = { status: '', recording: '', notes: '' };
+  var gone = { status: 'cancelled', recording: '' };
 
-  if (typeof Calendar === 'undefined' || !Calendar.Events) return blank;
+  if (typeof Calendar === 'undefined' || !Calendar.Events) return { status: '', recording: '' };
 
   try {
     var ev = Calendar.Events.get(CONFIG.CALENDAR_ID, id);
-    if (!ev || ev.status === 'cancelled') return { status: 'cancelled', recording: '', notes: '' };
+    if (!ev || ev.status === 'cancelled') return gone;
 
-    var files = attachmentLinks(ev);
     return {
       status: guestsDeclined(ev) ? 'declined' : 'confirmed',
-      recording: files.recording,
-      notes: files.notes
+      recording: recordingUrl(ev)
     };
   } catch (err) {
     // A deleted event returns 404 rather than a cancelled record.
-    return { status: 'cancelled', recording: '', notes: '' };
+    return gone;
   }
 }
 
 /**
- * Meet drops the recording onto the calendar event once the call ends, usually
- * alongside a transcript and a Gemini notes doc. Sorts them by type so the
- * video does not get mixed up with the paperwork.
+ * The Drive link to the recording, from the files Meet attaches to the event
+ * once a call ends.
+ *
+ * Meet usually leaves a transcript and a Gemini notes doc there too, so this
+ * picks the video rather than the first attachment it finds.
  */
-function attachmentLinks(ev) {
+function recordingUrl(ev) {
   var files = ev.attachments || [];
-  var out = { recording: '', notes: '' };
 
   for (var i = 0; i < files.length; i++) {
     var type = String(files[i].mimeType || '');
-    var url = files[i].fileUrl || '';
-    if (!url) continue;
-
-    if (!out.recording && type.indexOf('video/') === 0) out.recording = url;
-    else if (!out.notes && type.indexOf('application/vnd.google-apps.document') === 0) out.notes = url;
+    if (type.indexOf('video/') === 0 && files[i].fileUrl) return files[i].fileUrl;
   }
 
-  return out;
+  return '';
 }
 
 /** Runs syncBookingStatuses() every 15 minutes. Replaces any existing one. */

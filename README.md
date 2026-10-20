@@ -169,8 +169,8 @@ The Bookings tab has a **Bookings** menu at the top of the spreadsheet:
 
 - **Refresh statuses and recordings** — reads the calendar and updates every
   row's status to `confirmed`, `declined` (the guest said no) or `cancelled`
-  (the event was deleted), and fills in `recording_link` and `notes_link` from
-  whatever Meet attached to the event after the call.
+  (the event was deleted), and fills in `recording_link` from
+  the recording Meet attached to the event after the call.
 - **Refresh automatically every 15 minutes** — installs a trigger that does the
   same on a schedule. Run once; it replaces any earlier trigger.
 
@@ -178,7 +178,7 @@ Without this the status column stays at whatever it was when the row was
 written. It has no effect on availability either way.
 
 Meet attaches the recording to the calendar event a few minutes after a call
-ends, so the links appear on the next refresh rather than immediately. Links are
+ends, so the link appears on the next refresh rather than immediately. Links are
 only ever added, never cleared — tidying a recording away in Drive will not wipe
 the row that pointed at it.
 
