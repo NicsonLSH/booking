@@ -900,9 +900,17 @@ function syncBookingStatuses() {
 
     // The folder goes beside the recording rather than on every row, so a row
     // with nothing recorded does not get a link to somewhere it is not.
-    if (folderCol !== -1 && snap.folder && !String(values[r][folderCol] || '').trim()) {
-      sheet.getRange(r + 1, folderCol + 1).setValue(snap.folder);
-      changed++;
+    //
+    // Unlike the other columns this one is allowed to change: recordings get
+    // moved after the call, so the folder written an hour ago may no longer be
+    // where the file lives. Only a real lookup may overwrite — the fallback
+    // fills a blank cell but never replaces an answer already there.
+    if (folderCol !== -1 && snap.folder) {
+      var hadFolder = String(values[r][folderCol] || '').trim();
+      if ((snap.folderResolved && hadFolder !== snap.folder) || !hadFolder) {
+        sheet.getRange(r + 1, folderCol + 1).setValue(snap.folder);
+        changed++;
+      }
     }
   }
 
@@ -921,19 +929,22 @@ function syncBookingStatuses() {
 function eventSnapshot(eventId) {
   // CalendarApp ids carry an @google.com suffix the API does not want.
   var id = String(eventId).split('@')[0];
-  var gone = { status: 'cancelled', recording: '', folder: '' };
+  var gone = { status: 'cancelled', recording: '', folder: '', folderResolved: false };
 
-  if (typeof Calendar === 'undefined' || !Calendar.Events) return { status: '', recording: '', folder: '' };
+  if (typeof Calendar === 'undefined' || !Calendar.Events) return { status: '', recording: '', folder: '', folderResolved: false };
 
   try {
     var ev = Calendar.Events.get(CONFIG.CALENDAR_ID, id);
     if (!ev || ev.status === 'cancelled') return gone;
 
     var rec = recordingFile(ev);
+    var home = rec.url ? folderHolding(rec.fileId) : { url: '', resolved: false };
+
     return {
       status: guestsDeclined(ev) ? 'declined' : 'confirmed',
       recording: rec.url,
-      folder: rec.url ? folderHolding(rec.fileId) : ''
+      folder: home.url,
+      folderResolved: home.resolved
     };
   } catch (err) {
     // A deleted event returns 404 rather than a cancelled record.
@@ -963,26 +974,34 @@ function recordingFile(ev) {
 }
 
 /**
- * The Drive folder a recording sits in.
+ * The Drive folder a recording currently sits in.
  *
  * Each interview gets its own folder holding every video from the call plus
  * the transcript, so this is the link that reaches the whole set rather than
- * one file. Falls back to RECORDINGS_FOLDER_URL if the lookup fails — which it
- * will if the Drive permission has not been granted yet.
+ * one file.
+ *
+ * `resolved` says whether this is the file's real parent or just the configured
+ * fallback. That matters because recordings get filed somewhere else after the
+ * fact — a Zap moves them out of Meet Recordings — so the answer changes over
+ * time, and an unresolved guess must never overwrite a real one.
  */
 function folderHolding(fileId) {
-  if (!fileId) return CONFIG.RECORDINGS_FOLDER_URL || '';
+  var fallback = { url: CONFIG.RECORDINGS_FOLDER_URL || '', resolved: false };
+  if (!fileId) return fallback;
 
   try {
     var parents = DriveApp.getFileById(fileId).getParents();
     if (parents.hasNext()) {
-      return 'https://drive.google.com/drive/folders/' + parents.next().getId();
+      return {
+        url: 'https://drive.google.com/drive/folders/' + parents.next().getId(),
+        resolved: true
+      };
     }
   } catch (err) {
-    // No Drive access, or the file has been moved out from under us.
+    // No Drive access, or the file has been removed.
   }
 
-  return CONFIG.RECORDINGS_FOLDER_URL || '';
+  return fallback;
 }
 
 /** Runs syncBookingStatuses() every 15 minutes. Replaces any existing one. */
