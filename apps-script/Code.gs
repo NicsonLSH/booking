@@ -876,6 +876,7 @@ function syncBookingStatuses() {
   var idCol = headers.indexOf('event_id');
   var statusCol = headers.indexOf('status');
   var recCol = headers.indexOf('recording_link');
+  var folderCol = headers.indexOf('folder_link');
   if (idCol === -1 || statusCol === -1) return 0;
 
   var changed = 0;
@@ -896,6 +897,13 @@ function syncBookingStatuses() {
       sheet.getRange(r + 1, recCol + 1).setValue(snap.recording);
       changed++;
     }
+
+    // The folder goes beside the recording rather than on every row, so a row
+    // with nothing recorded does not get a link to somewhere it is not.
+    if (folderCol !== -1 && snap.folder && !String(values[r][folderCol] || '').trim()) {
+      sheet.getRange(r + 1, folderCol + 1).setValue(snap.folder);
+      changed++;
+    }
   }
 
   SpreadsheetApp.getActive().toast(
@@ -913,17 +921,19 @@ function syncBookingStatuses() {
 function eventSnapshot(eventId) {
   // CalendarApp ids carry an @google.com suffix the API does not want.
   var id = String(eventId).split('@')[0];
-  var gone = { status: 'cancelled', recording: '' };
+  var gone = { status: 'cancelled', recording: '', folder: '' };
 
-  if (typeof Calendar === 'undefined' || !Calendar.Events) return { status: '', recording: '' };
+  if (typeof Calendar === 'undefined' || !Calendar.Events) return { status: '', recording: '', folder: '' };
 
   try {
     var ev = Calendar.Events.get(CONFIG.CALENDAR_ID, id);
     if (!ev || ev.status === 'cancelled') return gone;
 
+    var rec = recordingFile(ev);
     return {
       status: guestsDeclined(ev) ? 'declined' : 'confirmed',
-      recording: recordingUrl(ev)
+      recording: rec.url,
+      folder: rec.url ? folderHolding(rec.fileId) : ''
     };
   } catch (err) {
     // A deleted event returns 404 rather than a cancelled record.
@@ -932,21 +942,47 @@ function eventSnapshot(eventId) {
 }
 
 /**
- * The Drive link to the recording, from the files Meet attaches to the event
- * once a call ends.
+ * The recording among the files Meet attaches to the event once a call ends.
  *
- * Meet usually leaves a transcript and a Gemini notes doc there too, so this
- * picks the video rather than the first attachment it finds.
+ * Meet leaves a transcript and a notes doc there too, so this picks the video
+ * rather than the first attachment it finds. A long call can produce more than
+ * one video, in which case this is the first of them — folderHolding() is the
+ * better link when that happens.
  */
-function recordingUrl(ev) {
+function recordingFile(ev) {
   var files = ev.attachments || [];
 
   for (var i = 0; i < files.length; i++) {
     var type = String(files[i].mimeType || '');
-    if (type.indexOf('video/') === 0 && files[i].fileUrl) return files[i].fileUrl;
+    if (type.indexOf('video/') === 0 && files[i].fileUrl) {
+      return { url: files[i].fileUrl, fileId: files[i].fileId || '' };
+    }
   }
 
-  return '';
+  return { url: '', fileId: '' };
+}
+
+/**
+ * The Drive folder a recording sits in.
+ *
+ * Each interview gets its own folder holding every video from the call plus
+ * the transcript, so this is the link that reaches the whole set rather than
+ * one file. Falls back to RECORDINGS_FOLDER_URL if the lookup fails — which it
+ * will if the Drive permission has not been granted yet.
+ */
+function folderHolding(fileId) {
+  if (!fileId) return CONFIG.RECORDINGS_FOLDER_URL || '';
+
+  try {
+    var parents = DriveApp.getFileById(fileId).getParents();
+    if (parents.hasNext()) {
+      return 'https://drive.google.com/drive/folders/' + parents.next().getId();
+    }
+  } catch (err) {
+    // No Drive access, or the file has been moved out from under us.
+  }
+
+  return CONFIG.RECORDINGS_FOLDER_URL || '';
 }
 
 /** Runs syncBookingStatuses() every 15 minutes. Replaces any existing one. */

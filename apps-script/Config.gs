@@ -43,6 +43,20 @@ var CONFIG = {
   EVENT_TITLE: 'Call — {name}',
 
   /**
+   * Fallback for folder_link, used only when a recording's own folder cannot
+   * be read — which happens if the Drive permission has not been granted.
+   *
+   * Normally each interview has its own folder holding both videos and the
+   * transcript, and that is what folder_link points at. This is the parent
+   * folder they all sit in.
+   *
+   * Deliberately has no /u/8/ in it. That part means "the 9th Google account
+   * signed into this browser", so a link carrying it opens the wrong account —
+   * or nothing at all — for anyone else.
+   */
+  RECORDINGS_FOLDER_URL: 'https://drive.google.com/drive/folders/1JE1sC0kG5GC_De_gWXJAy4wp8PrMq809',
+
+  /**
    * When the person who booked declines the invitation, reopen their slot so
    * someone else can take it. The event stays on the calendar until you delete
    * it — this only stops it holding the hour.
@@ -133,5 +147,5 @@ var BLOCKED_HEADERS = ['date', 'location', 'reason'];
 var BOOKING_HEADERS = [
   'timestamp', 'name', 'email', 'discord_id', 'location',
   'date_est', 'time_est', 'start_ts', 'duration_min', 'notes',
-  'event_id', 'meet_link', 'status', 'recording_link'
+  'event_id', 'meet_link', 'status', 'recording_link', 'folder_link'
 ];
