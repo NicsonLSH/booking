@@ -38,6 +38,17 @@ var CONFIG = {
   // How far into the future the calendar opens up.
   HORIZON_DAYS: 60,
 
+  /**
+   * How far ahead to look when working out the open_days window.
+   *
+   * The next days with room are nearly always within a couple of weeks, and
+   * fetching a short range is much quicker than fetching the whole horizon. If
+   * this reach does not turn up enough open days — a long holiday, say — the
+   * search widens to the full horizon automatically. Only a tuning knob: the
+   * answer is the same either way.
+   */
+  OPEN_SCAN_DAYS: 21,
+
   // Fallback event title, used only if a location has no event_title set in
   // the Settings tab. {name} is replaced with the guest's full name.
   EVENT_TITLE: 'Call — {name}',

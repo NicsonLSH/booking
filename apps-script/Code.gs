@@ -97,7 +97,7 @@ function handleDays(locationId, month) {
   var monthStart = new Date(Number(parts[0]), Number(parts[1]) - 1, 1, 0, 0, 0);
   var monthEnd = new Date(Number(parts[0]), Number(parts[1]), 1, 0, 0, 0);
 
-  var ctx = horizonContext();
+  var ctx = contextFor(found.rule, monthStart, monthEnd);
 
   var available = [];
   var cursor = new Date(monthStart.getTime());
@@ -124,7 +124,7 @@ function handleSlots(locationId, dateStr) {
   if (!day) return { ok: false, code: 'BAD_DATE', message: 'date must be YYYY-MM-DD' };
 
   var dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1, 0, 0, 0);
-  var slots = slotsForDay(found.rule, day, horizonContext());
+  var slots = slotsForDay(found.rule, day, contextFor(found.rule, day, dayEnd));
 
   return {
     ok: true,
@@ -164,7 +164,7 @@ function handleBooking(body) {
     // Re-derive the free slots and confirm the requested one is still among
     // them. This re-applies the gap and the daily cap as a side effect, so
     // there is one definition of "available" and the browser is never trusted.
-    var slots = slotsForDay(rule, dayStart, horizonContext());
+    var slots = slotsForDay(rule, dayStart, contextFor(rule, dayStart, dayEnd));
     var match = null;
     for (var i = 0; i < slots.length; i++) {
       if (slots[i].ts === b.ts) { match = slots[i]; break; }
@@ -251,17 +251,39 @@ function isDiscordId(value) {
  * the month grid asks about thirty days at once.
  */
 /**
- * Context covering every bookable day, from today to the horizon.
+ * The context a request should work from.
  *
- * The open-days window has to look across the whole horizon to find the next
- * days with room — they can fall in a later month than the one being drawn —
- * so one wide fetch serves every request rather than a narrow one per view.
+ * Without an open_days window, only the range being viewed matters, so the
+ * fetch stays as narrow as the question.
+ *
+ * With one, the answer depends on which days still have room, and those can
+ * fall outside the month being drawn — so the scan starts from today instead.
+ * It reaches OPEN_SCAN_DAYS ahead first, which covers the window in practice,
+ * and widens to the full horizon only when that is not far enough. Fetching
+ * sixty days every time made choosing a location take about five seconds.
  */
-function horizonContext() {
+function contextFor(rule, from, to) {
+  if (!rule || !rule.openDays) return buildContext(from, to);
+
+  var ctx = scanContext(CONFIG.OPEN_SCAN_DAYS);
+  if (countOpen(openDateSet(rule, ctx)) >= rule.openDays) return ctx;
+
+  // Not enough room nearby — look all the way out.
+  return scanContext(CONFIG.HORIZON_DAYS + 2);
+}
+
+/** A context reaching `days` ahead of today. */
+function scanContext(days) {
   var now = new Date();
   var from = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  var to = new Date(now.getTime() + (CONFIG.HORIZON_DAYS + 2) * 86400 * 1000);
-  return buildContext(from, to);
+  return buildContext(from, new Date(from.getTime() + days * 86400 * 1000));
+}
+
+function countOpen(set) {
+  if (!set) return 0;
+  var n = 0;
+  for (var k in set) n++;
+  return n;
 }
 
 function buildContext(from, to) {
@@ -291,7 +313,10 @@ function buildContext(from, to) {
     busy: busy,
     bookings: bookings,
     blocked: getBlockedDates(),
-    now: new Date()
+    now: new Date(),
+    // How far the fetched calendar data reaches. Beyond this nothing is known,
+    // so a day out there must never be reported as open.
+    end: to
   };
 }
 
@@ -327,6 +352,10 @@ function openDateSet(rule, ctx) {
   var found = 0;
   var cursor = new Date(ctx.now.getFullYear(), ctx.now.getMonth(), ctx.now.getDate(), 0, 0, 0);
   var horizon = new Date(ctx.now.getTime() + CONFIG.HORIZON_DAYS * 86400 * 1000);
+
+  // Stop at whichever comes first: the booking horizon, or the edge of the
+  // calendar data this context actually fetched.
+  if (ctx.end && ctx.end < horizon) horizon = ctx.end;
 
   while (cursor <= horizon && found < rule.openDays) {
     if (rawSlots(rule, cursor, ctx).length) {
@@ -1133,7 +1162,21 @@ function diagnose() {
     );
   }
 
-  var ctx = horizonContext();
+  // Judge this day on its own data, not on whatever range the window scan
+  // happened to fetch.
+  var ctx = buildContext(day, dayEnd);
+
+  Logger.log('--- open_days window ---');
+  if (!rule.openDays) {
+    Logger.log('no window — every day inside the horizon is offered');
+  } else {
+    var open = openDateSet(rule, contextFor(rule, day, dayEnd)) || {};
+    var dates = [];
+    for (var k in open) dates.push(k);
+    dates.sort();
+    Logger.log('offering ' + rule.openDays + ' day(s): ' + (dates.join(', ') || '(none found)'));
+    Logger.log(DATE + ' is ' + (open[DATE] ? 'INSIDE the window' : 'OUTSIDE the window — nothing is bookable'));
+  }
 
   Logger.log('--- calls booked through the page (these get a gap) ---');
   if (!ctx.bookings.length) Logger.log('(none)');
