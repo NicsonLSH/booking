@@ -107,6 +107,7 @@ var CONFIG = {
       gap_minutes: 60,
       weekdays: 'Mon,Tue,Wed,Thu,Fri',
       max_per_day: '',
+      open_days: 2,
       event_title: 'Billy - General Virtual Assistant Interview | {name}',
       interviewer_email: 'recruitment@legalsupporthelp.com',
       block_keywords: 'Billy,Philippines',
@@ -122,6 +123,7 @@ var CONFIG = {
       gap_minutes: 60,
       weekdays: 'Mon,Tue,Wed,Thu,Fri',
       max_per_day: 4,
+      open_days: 2,
       event_title: 'Charly - General Virtual Assistant Interview | {name}',
       interviewer_email: 'sourcing@legalsupporthelp.com',
       block_keywords: 'Charly,Latin America,Others',
@@ -138,7 +140,7 @@ var SHEETS = {
 
 var SETTINGS_HEADERS = [
   'location', 'label', 'start_times', 'slot_minutes',
-  'gap_minutes', 'weekdays', 'max_per_day', 'event_title',
+  'gap_minutes', 'weekdays', 'max_per_day', 'open_days', 'event_title',
   'interviewer_email', 'block_keywords', 'active'
 ];
 

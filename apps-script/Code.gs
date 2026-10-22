@@ -97,7 +97,7 @@ function handleDays(locationId, month) {
   var monthStart = new Date(Number(parts[0]), Number(parts[1]) - 1, 1, 0, 0, 0);
   var monthEnd = new Date(Number(parts[0]), Number(parts[1]), 1, 0, 0, 0);
 
-  var ctx = buildContext(monthStart, monthEnd);
+  var ctx = horizonContext();
 
   var available = [];
   var cursor = new Date(monthStart.getTime());
@@ -124,7 +124,7 @@ function handleSlots(locationId, dateStr) {
   if (!day) return { ok: false, code: 'BAD_DATE', message: 'date must be YYYY-MM-DD' };
 
   var dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1, 0, 0, 0);
-  var slots = slotsForDay(found.rule, day, buildContext(day, dayEnd));
+  var slots = slotsForDay(found.rule, day, horizonContext());
 
   return {
     ok: true,
@@ -164,7 +164,7 @@ function handleBooking(body) {
     // Re-derive the free slots and confirm the requested one is still among
     // them. This re-applies the gap and the daily cap as a side effect, so
     // there is one definition of "available" and the browser is never trusted.
-    var slots = slotsForDay(rule, dayStart, buildContext(dayStart, dayEnd));
+    var slots = slotsForDay(rule, dayStart, horizonContext());
     var match = null;
     for (var i = 0; i < slots.length; i++) {
       if (slots[i].ts === b.ts) { match = slots[i]; break; }
@@ -250,6 +250,20 @@ function isDiscordId(value) {
  * Reading the calendar and the Bookings tab per day would be far slower when
  * the month grid asks about thirty days at once.
  */
+/**
+ * Context covering every bookable day, from today to the horizon.
+ *
+ * The open-days window has to look across the whole horizon to find the next
+ * days with room — they can fall in a later month than the one being drawn —
+ * so one wide fetch serves every request rather than a narrow one per view.
+ */
+function horizonContext() {
+  var now = new Date();
+  var from = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  var to = new Date(now.getTime() + (CONFIG.HORIZON_DAYS + 2) * 86400 * 1000);
+  return buildContext(from, to);
+}
+
 function buildContext(from, to) {
   var events = getEventsDetailed(from, to);
   var rules = getRules();
@@ -287,6 +301,47 @@ function buildContext(from, to) {
  * or fully taken.
  */
 function slotsForDay(rule, day, ctx) {
+  var open = openDateSet(rule, ctx);
+  if (open && !open[dateKey(day)]) return [];
+  return rawSlots(rule, day, ctx);
+}
+
+/**
+ * The days this location is currently taking bookings on.
+ *
+ * With open_days set to 2, only the next two days that still have room are
+ * offered. As those fill, the window slides forward on its own: once Thursday
+ * and Friday are full, Monday and Tuesday open. Returns null when open_days is
+ * blank or zero, meaning every day inside the horizon is fair game.
+ *
+ * Computed once per request and cached on the context, since the month grid
+ * asks about thirty days in a row.
+ */
+function openDateSet(rule, ctx) {
+  if (!rule.openDays) return null;
+
+  if (!ctx.openCache) ctx.openCache = {};
+  if (ctx.openCache[rule.location]) return ctx.openCache[rule.location];
+
+  var set = {};
+  var found = 0;
+  var cursor = new Date(ctx.now.getFullYear(), ctx.now.getMonth(), ctx.now.getDate(), 0, 0, 0);
+  var horizon = new Date(ctx.now.getTime() + CONFIG.HORIZON_DAYS * 86400 * 1000);
+
+  while (cursor <= horizon && found < rule.openDays) {
+    if (rawSlots(rule, cursor, ctx).length) {
+      set[dateKey(cursor)] = true;
+      found++;
+    }
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1, 0, 0, 0);
+  }
+
+  ctx.openCache[rule.location] = set;
+  return set;
+}
+
+/** Availability for one day, before the open-days window is applied. */
+function rawSlots(rule, day, ctx) {
   var out = [];
   if (!rule || !rule.active || !rule.startTimes.length) return out;
 
@@ -678,6 +733,7 @@ function getRules() {
       gapMinutes: r.gap_minutes === '' || r.gap_minutes == null ? 0 : Number(r.gap_minutes) || 0,
       weekdays: parseWeekdays(r.weekdays),
       maxPerDay: Number(r.max_per_day) || 0,
+      openDays: Number(r.open_days) || 0,
       eventTitle: String(r.event_title || '').trim() || CONFIG.EVENT_TITLE,
       interviewerEmail: String(r.interviewer_email || '').trim(),
       blockKeywords: parseKeywords(r.block_keywords),
@@ -1077,7 +1133,7 @@ function diagnose() {
     );
   }
 
-  var ctx = buildContext(day, dayEnd);
+  var ctx = horizonContext();
 
   Logger.log('--- calls booked through the page (these get a gap) ---');
   if (!ctx.bookings.length) Logger.log('(none)');
@@ -1183,7 +1239,7 @@ function upgradeSettings() {
  * which says nothing useful. Fail early with something actionable instead.
  */
 function assertConfigCurrent() {
-  var required = ['start_times', 'gap_minutes', 'max_per_day', 'event_title', 'interviewer_email', 'block_keywords'];
+  var required = ['start_times', 'gap_minutes', 'max_per_day', 'open_days', 'event_title', 'interviewer_email', 'block_keywords'];
   var missing = [];
 
   for (var i = 0; i < required.length; i++) {

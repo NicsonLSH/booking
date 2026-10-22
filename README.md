@@ -84,10 +84,10 @@ minute or two.
 Open the **Settings** tab in the Sheet and change the numbers. No redeploy, no
 commit — reload the booking page and the slots have changed.
 
-| location | label | start_times | slot_minutes | gap_minutes | weekdays | max_per_day | event_title | active |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| philippines | Philippines | 13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | | Billy - General Virtual Assistant Interview \| {name} | TRUE |
-| others | Latin America | 8,9,10,11,13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | 4 | Charly - General Virtual Assistant Interview \| {name} | TRUE |
+| location | label | start_times | slot_minutes | gap_minutes | weekdays | max_per_day | open_days | event_title | active |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| philippines | Philippines | 13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | | 2 | Billy - General Virtual Assistant Interview \| {name} | TRUE |
+| others | Latin America | 8,9,10,11,13,14,15,16 | 60 | 60 | Mon,Tue,Wed,Thu,Fri | 4 | 2 | Charly - General Virtual Assistant Interview \| {name} | TRUE |
 
 - **`start_times`** is the literal list of times someone can pick, on a 24-hour
   US Eastern clock. `13,14,15,16` offers 1PM, 2PM, 3PM and 4PM. Gaps in the list
@@ -99,6 +99,10 @@ commit — reload the booking page and the slots have changed.
 - **`max_per_day`** caps how many calls that location can take in a day. Leave it
   blank for no cap. It is counted per location, so Philippines and Latin America each
   keep their own tally.
+- **`open_days`** is how many days are offered at once. At `2`, only the next
+  two days that still have room appear; the rest of the calendar stays closed.
+  The window slides forward by itself — once Thursday and Friday fill up,
+  Monday and Tuesday open. Leave it blank to offer every day inside the horizon.
 - **`event_title`** is what the calendar entry is called. `{name}` is replaced
   with whatever the person typed as their full name, so
   `Billy - General Virtual Assistant Interview | {name}` becomes
