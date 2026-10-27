@@ -107,12 +107,12 @@ var CONFIG = {
   /**
    * Whether each location keeps its own diary.
    *
-   * true: Billy and Charly are different interviewers, so both can be booked
-   * for 1pm on the same day. A booking only closes slots — and only spends its
-   * gap — within its own location.
+   * true: each row is a different interviewer, so Billy and Jovi can both be
+   * booked for 5pm on the same day. A booking only closes slots — and only
+   * spends its gap — within its own row.
    *
-   * false: every booking is the same person's hour, so a Philippines call at
-   * 1pm also closes 1pm for Others.
+   * false: every booking is the same person's hour, so one at 5pm closes 5pm
+   * for everyone.
    *
    * Either way, anything on the calendar that was not booked through this page
    * (a holiday, a company meeting) still blocks every location.
@@ -139,33 +139,61 @@ var CONFIG = {
   // Used only if the Settings tab is missing or empty.
   DEFAULT_LOCATIONS: [
     {
-      location: 'philippines',
-      label: 'Philippines',
-      start_times: '13,14,15,16',
+      // Ids are permanent: they are stamped on every booking already made.
+      // "philippines" and "others" predate the switch from regions to people.
+      location: "philippines",
+      label: "Billy",
+      start_times: "11,12,13,14,15,16,17,18,19",
       slot_minutes: 60,
-      gap_minutes: 60,
-      weekdays: 'Mon,Tue,Wed,Thu,Fri',
-      max_per_day: '',
+      gap_minutes: 0,
+      weekdays: "Mon,Tue,Wed,Thu,Fri",
+      max_per_day: "",
       open_days: 2,
-      event_title: 'Billy - General Virtual Assistant Interview | {name}',
-      interviewer_email: 'recruitment@legalsupporthelp.com',
-      block_keywords: 'Billy,Philippines',
+      event_title: "Billy - General Virtual Assistant Interview | {name}",
+      interviewer_email: "recruitment@legalsupporthelp.com",
+      block_keywords: "Billy",
       active: true
     },
     {
-      // The id stays 'others' even though the label changed — it is stamped on
-      // every booking already made, and renaming it would orphan them.
-      location: 'others',
-      label: 'Latin America',
-      start_times: '8,9,10,11,13,14,15,16',
+      location: "others",
+      label: "Carlos",
+      start_times: "8,9,10,11,13,14,15,16",
       slot_minutes: 60,
-      gap_minutes: 60,
-      weekdays: 'Mon,Tue,Wed,Thu,Fri',
-      max_per_day: 4,
+      gap_minutes: 0,
+      weekdays: "Mon,Tue,Wed,Thu,Fri",
+      max_per_day: "",
       open_days: 2,
-      event_title: 'Charly - General Virtual Assistant Interview | {name}',
-      interviewer_email: 'sourcing@legalsupporthelp.com',
-      block_keywords: 'Charly,Latin America,Others',
+      event_title: "Carlos - General Virtual Assistant Interview | {name}",
+      interviewer_email: "sourcing@legalsupporthelp.com",
+      block_keywords: "Carlos,Charly",
+      active: true
+    },
+    {
+      location: "irish",
+      label: "Irish",
+      start_times: "16,17,18,19",
+      slot_minutes: 60,
+      gap_minutes: 0,
+      weekdays: "Mon,Tue,Wed,Thu,Fri",
+      max_per_day: 3,
+      open_days: 2,
+      event_title: "Irish - General Virtual Assistant Interview | {name}",
+      interviewer_email: "irish.salvador@legalsupporthelp.com",
+      block_keywords: "Irish",
+      active: true
+    },
+    {
+      location: "jovi",
+      label: "Jovi",
+      start_times: "17,18,19",
+      slot_minutes: 60,
+      gap_minutes: 0,
+      weekdays: "Mon,Tue,Wed,Thu,Fri",
+      max_per_day: 2,
+      open_days: 2,
+      event_title: "Jovi - General Virtual Assistant Interview | {name}",
+      interviewer_email: "careers@legalsupporthelp.com",
+      block_keywords: "Jovi",
       active: true
     }
   ]
