@@ -678,6 +678,136 @@ function getCalendar(calendarId) {
   return cal;
 }
 
+// --------------------------------------------- creating as someone else --
+
+/**
+ * Google sets an event's creator to whichever account made the API call, and
+ * will not accept one in the payload. So to have an interview read "Created by
+ * Billy", the call itself has to be made as Billy.
+ *
+ * That is what domain-wide delegation allows: a service account the Workspace
+ * admin has authorised to act as people in the domain, limited here to the
+ * calendar scope. This mints a token for one of them.
+ *
+ * The service account's details live in Script Properties, never in this file —
+ * the private key is a credential and does not belong in source control.
+ * Returns '' when the setup is absent or failing, which leaves bookings to be
+ * created the ordinary way.
+ */
+function tokenActingAs(userEmail) {
+  if (!userEmail) return '';
+
+  var props = PropertiesService.getScriptProperties();
+  var issuer = props.getProperty('SA_EMAIL');
+  var key = props.getProperty('SA_PRIVATE_KEY');
+  if (!issuer || !key) return '';
+
+  // Tokens last an hour; reuse one rather than minting per booking.
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'actas_' + userEmail;
+  var cached = cache.get(cacheKey);
+  if (cached) return cached;
+
+  try {
+    var now = Math.floor(Date.now() / 1000);
+    var header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+    var claim = b64url(JSON.stringify({
+      iss: issuer,
+      sub: userEmail,
+      scope: 'https://www.googleapis.com/auth/calendar',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600
+    }));
+
+    // Pasted keys usually arrive with the newlines escaped.
+    var pem = key.indexOf('\\n') !== -1 ? key.replace(/\\n/g, '\n') : key;
+    var signature = b64url(Utilities.computeRsaSha256Signature(header + '.' + claim, pem));
+
+    var res = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+      method: 'post',
+      payload: {
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: header + '.' + claim + '.' + signature
+      },
+      muteHttpExceptions: true
+    });
+
+    var body = JSON.parse(res.getContentText() || '{}');
+    if (!body.access_token) {
+      Logger.log('Could not act as ' + userEmail + ': ' + res.getContentText());
+      return '';
+    }
+
+    cache.put(cacheKey, body.access_token, 3000);
+    return body.access_token;
+  } catch (err) {
+    Logger.log('Could not act as ' + userEmail + ': ' + err);
+    return '';
+  }
+}
+
+/** Creates the event through the Calendar REST API as the token's owner. */
+function insertEventAs(token, resource) {
+  var url = 'https://www.googleapis.com/calendar/v3/calendars/' +
+    encodeURIComponent(CONFIG.CALENDAR_ID) +
+    '/events?conferenceDataVersion=1&sendUpdates=all';
+
+  var res = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + token },
+    payload: JSON.stringify(resource),
+    muteHttpExceptions: true
+  });
+
+  if (res.getResponseCode() >= 300) {
+    Logger.log('Creating the event as the interviewer failed: ' + res.getContentText());
+    return null;
+  }
+
+  return JSON.parse(res.getContentText());
+}
+
+function b64url(value) {
+  return Utilities.base64EncodeWebSafe(value).replace(/=+$/, '');
+}
+
+/**
+ * Checks the delegation setup without making a booking. Run from the editor
+ * and read the log.
+ */
+function testCreateAsInterviewer() {
+  var rules = getRules();
+
+  for (var id in rules) {
+    var who = rules[id].interviewerEmail;
+    if (!who) {
+      Logger.log(rules[id].label + ': no interviewer_email set — would be created by you');
+      continue;
+    }
+
+    var token = tokenActingAs(who);
+    if (!token) {
+      Logger.log(rules[id].label + ': CANNOT act as ' + who + ' — see the error above');
+      continue;
+    }
+
+    // Can that person actually reach the HR Calendar?
+    var res = UrlFetchApp.fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(CONFIG.CALENDAR_ID),
+      { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true }
+    );
+
+    if (res.getResponseCode() >= 300) {
+      Logger.log(rules[id].label + ': acting as ' + who + ' works, but they cannot open the HR Calendar. ' +
+        'Share it with them as "Make changes to events". ' + res.getContentText());
+    } else {
+      Logger.log(rules[id].label + ': OK — interviews will be created by ' + who);
+    }
+  }
+}
+
 // ------------------------------------------------------ calendar writing --
 
 /**
@@ -721,6 +851,17 @@ function createEvent(b, rule, start, end) {
         })()
       }
     };
+
+    // Create it as the interviewer where that has been set up, so the event
+    // reads "Created by Billy". Falls through to the ordinary path whenever
+    // that is unavailable — a booking must never fail over a name.
+    if (CONFIG.CREATE_AS_INTERVIEWER && rule.interviewerEmail) {
+      var token = tokenActingAs(rule.interviewerEmail);
+      if (token) {
+        var asThem = insertEventAs(token, resource);
+        if (asThem) return { eventId: asThem.id, meetLink: asThem.hangoutLink || '' };
+      }
+    }
 
     var created = Calendar.Events.insert(resource, CONFIG.CALENDAR_ID, {
       conferenceDataVersion: 1,

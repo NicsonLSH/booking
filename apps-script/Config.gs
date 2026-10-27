@@ -68,6 +68,22 @@ var CONFIG = {
   RECORDINGS_FOLDER_URL: 'https://drive.google.com/drive/folders/1JE1sC0kG5GC_De_gWXJAy4wp8PrMq809',
 
   /**
+   * Create each interview as its interviewer rather than as the account that
+   * deployed this script, so the event reads "Created by Billy" instead of
+   * naming whoever set the booking page up.
+   *
+   * Needs the domain-wide delegation setup described in the README. Until that
+   * is done this does nothing — events are still created by the deploying
+   * account, exactly as before. Nothing breaks if it is left on and the setup
+   * is missing or stops working.
+   *
+   * The person impersonated is a location's interviewer_email, and they need
+   * edit access to CALENDAR_ID. Events stay on the HR Calendar either way, so
+   * the organiser is unchanged; only the creator differs.
+   */
+  CREATE_AS_INTERVIEWER: true,
+
+  /**
    * When the person who booked declines the invitation, reopen their slot so
    * someone else can take it. The event stays on the calendar until you delete
    * it — this only stops it holding the hour.

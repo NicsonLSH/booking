@@ -153,6 +153,46 @@ created on a calendar he owns.
 Only the candidate's reply releases a slot. If the interviewer declines, or has
 not responded, the booking stands.
 
+### Showing the interviewer as the creator
+
+Google sets an event's creator to whichever account made the API call and will
+not accept one in the payload, so by default every interview reads "Created by"
+whoever deployed the script. Having it say *Billy* means the call itself must be
+made as Billy, which takes domain-wide delegation. A Workspace super-admin can
+set this up once:
+
+1. **Google Cloud** — create a project, enable the **Google Calendar API**, then
+   create a **service account**. No roles are needed.
+2. On that service account, **add a key** (JSON) and download it. Treat it as a
+   password: it is not needed anywhere but step 4.
+3. Copy the service account's **Unique ID** (a long number, on its Details tab).
+   In **Admin console ▸ Security ▸ Access and data control ▸ API controls ▸
+   Domain-wide delegation**, click **Add new**, paste that ID, and grant exactly
+   one scope: `https://www.googleapis.com/auth/calendar`
+4. In the Apps Script editor, **Project Settings ▸ Script properties**, add two:
+
+   | Property | Value |
+   | --- | --- |
+   | `SA_EMAIL` | the service account address, ending `.iam.gserviceaccount.com` |
+   | `SA_PRIVATE_KEY` | the `private_key` field from the JSON, `-----BEGIN PRIVATE KEY-----` and all |
+
+5. Share the HR Calendar with each interviewer as **Make changes to events** —
+   they cannot create an event on a calendar they cannot edit.
+6. Run **`testCreateAsInterviewer`** from the editor. It reports each location
+   as OK or says what is missing, without making a booking.
+
+Events stay on the HR Calendar, so the organiser does not change — only the
+creator. `CREATE_AS_INTERVIEWER` in `Config.gs` turns it off again.
+
+If any part of this is missing or stops working, bookings are simply created
+the ordinary way. A booking never fails over whose name is on it.
+
+**What you are granting.** Domain-wide delegation lets that service account act
+as *any* user in the domain, for the scopes you list. Granting only the calendar
+scope keeps it to calendars, and the key living in Script Properties keeps it
+out of this repository — but it is a powerful credential, and rotating it means
+deleting the key in Cloud and updating `SA_PRIVATE_KEY`.
+
 Unrelated meetings block the slot they actually cover and nothing more. Set
 `GAP_AROUND_ALL_EVENTS` to `true` if you would rather every meeting on the
 calendar reserve room around itself.
