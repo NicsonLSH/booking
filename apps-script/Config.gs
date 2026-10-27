@@ -68,6 +68,18 @@ var CONFIG = {
   RECORDINGS_FOLDER_URL: 'https://drive.google.com/drive/folders/1JE1sC0kG5GC_De_gWXJAy4wp8PrMq809',
 
   /**
+   * Addresses invited to every booking, whatever the location, on top of the
+   * candidate and that location's interviewer.
+   *
+   * These are ordinary guests: the event lands on their calendar and they get
+   * the usual invitation. Being a guest does not give access to the recording
+   * file — that is a Drive sharing matter.
+   */
+  ALWAYS_INVITE: [
+    'storage@legalsupporthelp.com'
+  ],
+
+  /**
    * Create each interview as its interviewer rather than as the account that
    * deployed this script, so the event reads "Created by Billy" instead of
    * naming whoever set the booking page up.

@@ -656,15 +656,28 @@ function guestsDeclined(ev) {
 }
 
 /**
- * The candidate, plus the interviewer for that location if one is configured.
- * Both get the standard Google invitation.
+ * Everyone invited to a booking: the candidate, that location's interviewer,
+ * and anyone in ALWAYS_INVITE. All get the standard Google invitation.
+ *
+ * Deduplicated, so an interviewer who also appears in ALWAYS_INVITE is added
+ * once rather than twice.
  */
 function buildAttendees(b, rule) {
   var list = [{ email: b.email, displayName: b.name }];
+  var seen = {};
+  seen[b.email.toLowerCase()] = true;
 
-  if (rule.interviewerEmail && rule.interviewerEmail.toLowerCase() !== b.email.toLowerCase()) {
-    list.push({ email: rule.interviewerEmail });
+  function invite(email) {
+    var address = String(email || '').trim();
+    if (!address || seen[address.toLowerCase()]) return;
+    seen[address.toLowerCase()] = true;
+    list.push({ email: address });
   }
+
+  invite(rule.interviewerEmail);
+
+  var always = CONFIG.ALWAYS_INVITE || [];
+  for (var i = 0; i < always.length; i++) invite(always[i]);
 
   return list;
 }
@@ -873,7 +886,7 @@ function createEvent(b, rule, start, end) {
 
   var ev = getCalendar().createEvent(title, start, end, {
     description: description,
-    guests: rule.interviewerEmail ? b.email + ',' + rule.interviewerEmail : b.email,
+    guests: buildAttendees(b, rule).map(function (a) { return a.email; }).join(','),
     sendInvites: true
   });
 
