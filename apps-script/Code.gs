@@ -177,6 +177,19 @@ function handleBooking(body) {
       };
     }
 
+    // Second line of defence, read from the Bookings tab rather than the
+    // calendar. Two people were once booked into the same slot half an hour
+    // apart, which the check above should have caught; a duplicate guard
+    // against a different source will hold even when a calendar read does not
+    // reflect what has just been written.
+    if (alreadyBooked(b.location, b.ts)) {
+      return {
+        ok: false,
+        code: 'SLOT_TAKEN',
+        message: 'That time has just been taken. Please pick another.'
+      };
+    }
+
     var end = new Date(b.ts + rule.slotMinutes * 60000);
     var created = createEvent(b, rule, start, end);
 
@@ -505,6 +518,28 @@ function countBookings(bookings, dayKey, locationId) {
     if (bookings[i].location === locationId && dateKey(bookings[i].start) === dayKey) n++;
   }
   return n;
+}
+
+/**
+ * Is this exact slot already recorded in the Bookings tab?
+ *
+ * Cancelled and declined rows do not count — their slot has been released and
+ * should be bookable again. The row is written inside the same lock as the
+ * calendar event, so by the time one booking returns, the next request will
+ * see it here even if the calendar has not caught up.
+ */
+function alreadyBooked(locationId, ts) {
+  var rows = readTab(SHEETS.BOOKINGS);
+
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (String(row.location || '').trim() !== locationId) continue;
+    if (Number(row.start_ts) !== ts) continue;
+    if (String(row.status || '').trim().toLowerCase() !== 'confirmed') continue;
+    return true;
+  }
+
+  return false;
 }
 
 /** Marks the events this page creates, so they can be recognised later. */
